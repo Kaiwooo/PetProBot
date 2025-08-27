@@ -2,7 +2,6 @@ import asyncio
 from create_bot import bot, dp, scheduler
 from handlers.registration import registration_router
 from handlers.start import start_router
-
 from handlers.special_start import special_start_router
 
 # from work_time.time_func import send_time_msg
@@ -12,7 +11,6 @@ async def main():
     dp.include_router(special_start_router)
     dp.include_router(start_router)
     dp.include_router(registration_router)
-    #dp.startup.register(start_bot)
 
     # запуск бота в режиме long polling при запуске бот очищает все обновления, которые были за его моменты бездействия
     try:
@@ -22,4 +20,7 @@ async def main():
         await bot.session.close()
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        pass

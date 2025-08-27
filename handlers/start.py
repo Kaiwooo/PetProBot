@@ -1,7 +1,6 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
-from keyboards.regular_kb import phone_kb
 from keyboards.inline_kb import main_kb, medspec_kb, about_kb, petnetrubot_kb
 
 start_router = Router()
