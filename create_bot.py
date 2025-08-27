@@ -5,6 +5,7 @@ from aiogram.enums import ParseMode
 from aiogram.fsm.storage.memory import MemoryStorage
 from decouple import config
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from middlewares.logging_user import UserLoggingMiddleware
 
 #from db_handler.db_class import PostgresHandler
 
@@ -17,3 +18,4 @@ logger = logging.getLogger(__name__)
 
 bot = Bot(token=config('TOKEN'), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 dp = Dispatcher(storage=MemoryStorage())
+dp.update.middleware(UserLoggingMiddleware())
