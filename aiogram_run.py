@@ -8,9 +8,9 @@ from handlers.special_start import special_start_router
 
 async def main():
     # регистрация роутеров
+    dp.include_router(registration_router)
     dp.include_router(special_start_router)
     dp.include_router(start_router)
-    dp.include_router(registration_router)
 
     # запуск бота в режиме long polling при запуске бот очищает все обновления, которые были за его моменты бездействия
     try:
