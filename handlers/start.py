@@ -1,5 +1,5 @@
 from aiogram import Router, F
-from aiogram.filters import CommandStart, Command
+from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.types import Message, CallbackQuery
 from keyboards.inline_kb import main_kb, medspec_kb, about_kb, petnetrubot_kb, reg_user_kb
 from handlers.registration import users_data
@@ -29,6 +29,12 @@ async def cmd_start(message: Message, command: Command):
             reply_markup=main_kb(user_id)
         )
 
+@start_router.callback_query(F.data == 'main_menu')
+async def cmd_main_menu(callback: CallbackQuery):
+    await callback.message.answer('Вас приветствует бот профессионального сообщества врачей PET.PRO',
+                         reply_markup=main_kb(callback.from_user.id))
+    await callback.answer()  # чтобы убрать "часики" на кнопке
+
 @start_router.callback_query(F.data == 'registration')
 async def cmd_registration(callback: CallbackQuery):
     await callback.message.answer('Бот предназначен для медицинских специалистов. Вы медицинский специалист?',
@@ -46,20 +52,3 @@ async def cmd_about(callback: CallbackQuery):
     await callback.message.answer('Если вы пациент и ищете как обратиться в федеральную сеть клиник ПЭТ-Технолоджи, пожалуйста, напишите ваше обращение 👉 @petnetru_bot',
                                   reply_markup = petnetrubot_kb(callback.from_user.id))
     await callback.answer()  # чтобы убрать "часики" на кнопке
-
-@start_router.message(Command("profile"))
-async def cmd_profile(message: Message):
-    user_id = message.from_user.id
-    if user_id in users_data:
-        data = users_data[user_id]
-        await message.answer(
-            f"Ваш профиль:\n"
-            f"Телефон: {data['phone']}\n"
-            f"ФИО: {data['full_name']}\n"
-            f"Email: {data['email']}\n"
-            f"Город: {data['city']}\n"
-            f"Медицинское учреждение: {data['clinic']}\n"
-            f"Должность: {data['position']}"
-        )
-    else:
-        await message.answer("Вы пока не прошли регистрацию 🚀")

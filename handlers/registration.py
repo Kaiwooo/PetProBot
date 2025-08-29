@@ -1,9 +1,9 @@
-# handlers/registration.py
-
 from aiogram import Router, F
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
+
+from keyboards.inline_kb import reg_user_kb
 from keyboards.regular_kb import phone_kb
 
 registration_router = Router()
@@ -29,10 +29,11 @@ async def start_registration_callback(callback: CallbackQuery, state: FSMContext
     await state.set_state(Registration.phone)
     await callback.answer()  # чтобы убрать "часики" на кнопке
 
+
 @registration_router.message(F.contact)
 async def process_phone(message: Message, state: FSMContext):
     await state.update_data(phone=message.contact.phone_number)
-    await message.answer("Введите ваше ФИО:")
+    await message.answer("Спасибо! А теперь введи ваше ФИО:", reply_markup=ReplyKeyboardRemove())
     await state.set_state(Registration.full_name)
 
 
@@ -75,14 +76,13 @@ async def process_position(message: Message, state: FSMContext):
     users_data[telegram_id] = data
 
     await message.answer(
-        f"Регистрация завершена!\n\n"
         f"Телефон: {data['phone']}\n"
         f"ФИО: {data['full_name']}\n"
         f"Email: {data['email']}\n"
         f"Город: {data['city']}\n"
         f"Медицинское учреждение: {data['clinic']}\n"
         f"Должность: {data['position']}",
-        reply_markup=None
     )
 
     await state.clear()  # очищаем FSM
+    await message.answer(f"Регистрация завершена!", reply_markup=reg_user_kb(message.from_user.id))
