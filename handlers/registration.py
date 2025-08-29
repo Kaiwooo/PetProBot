@@ -76,13 +76,13 @@ async def process_position(message: Message, state: FSMContext):
     users_data[telegram_id] = data
 
     await message.answer(
+        f"Регистрация завершена!"
         f"Телефон: {data['phone']}\n"
         f"ФИО: {data['full_name']}\n"
         f"Email: {data['email']}\n"
         f"Город: {data['city']}\n"
         f"Медицинское учреждение: {data['clinic']}\n"
-        f"Должность: {data['position']}",
+        f"Должность: {data['position']}", reply_markup=reg_user_kb(message.from_user.id)
     )
 
     await state.clear()  # очищаем FSM
-    await message.answer(f"Регистрация завершена!", reply_markup=reg_user_kb(message.from_user.id))
