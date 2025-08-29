@@ -2,13 +2,11 @@ import asyncio
 from create_bot import bot, dp, scheduler
 from handlers.registration import registration_router
 from handlers.start import start_router
-from handlers.special_start import special_start_router
 
 # from work_time.time_func import send_time_msg
 
 async def main():
     # регистрация роутеров
-    dp.include_router(special_start_router)
     dp.include_router(start_router)
     dp.include_router(registration_router)
 

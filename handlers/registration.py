@@ -1,11 +1,15 @@
+# handlers/registration.py
+
 from aiogram import Router, F
-from aiogram.types import Message
+from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from aiogram.types import CallbackQuery
 from keyboards.regular_kb import phone_kb
 
 registration_router = Router()
+
+# Хранилище пользователей на время работы бота
+users_data = {}
 
 # ------------------- FSM -------------------
 class Registration(StatesGroup):
@@ -65,7 +69,11 @@ async def process_position(message: Message, state: FSMContext):
     await state.update_data(position=message.text)
 
     data = await state.get_data()
-    # здесь можно записывать в БД или CRM
+    telegram_id = message.from_user.id
+
+    # сохраняем в память
+    users_data[telegram_id] = data
+
     await message.answer(
         f"Регистрация завершена!\n\n"
         f"Телефон: {data['phone']}\n"

@@ -36,3 +36,11 @@ def petnetrubot_kb(user_telegram_id: int):
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
+
+def reg_user_kb(user_telegram_id: int):
+    kb_list = [
+        [InlineKeyboardButton(text="📄 Скачать информацию", callback_data="download_info")],
+        [InlineKeyboardButton(text="👨‍⚕️ Направить пациента", callback_data="make_request")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
+    return keyboard

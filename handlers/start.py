@@ -1,14 +1,33 @@
 from aiogram import Router, F
 from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
-from keyboards.inline_kb import main_kb, medspec_kb, about_kb, petnetrubot_kb
+from keyboards.inline_kb import main_kb, medspec_kb, about_kb, petnetrubot_kb, reg_user_kb
+from handlers.registration import users_data
 
 start_router = Router()
 
 @start_router.message(CommandStart())
-async def cmd_start(message: Message):
-    await message.answer('Вас приветствует бот профессионального сообщества врачей PET.PRO',
-                         reply_markup=main_kb(message.from_user.id))
+async def cmd_start(message: Message, command: Command):
+    user_id = message.from_user.id
+    command_args: str = command.args  # получаем payload после /start
+
+    if command_args:
+        if command_args.lower() == "yana":
+            await message.answer("Вас пригласила Яна.")
+
+    if user_id in users_data:
+        # зарегистрированный пользователь
+        full_name = users_data[user_id].get("full_name", "Участник")
+        await message.answer(
+            f"Рады вас видеть, {full_name}! 👋",
+            reply_markup=reg_user_kb(user_id)
+        )
+    else:
+        # новый пользователь
+        await message.answer(
+            "Вас приветствует бот профессионального сообщества врачей PET.PRO",
+            reply_markup=main_kb(user_id)
+        )
 
 @start_router.callback_query(F.data == 'registration')
 async def cmd_registration(callback: CallbackQuery):
@@ -28,14 +47,19 @@ async def cmd_about(callback: CallbackQuery):
                                   reply_markup = petnetrubot_kb(callback.from_user.id))
     await callback.answer()  # чтобы убрать "часики" на кнопке
 
-
-#@start_router.message(Command('docs'))
-#async def cmd_start_2(message: Message):
-#    await message.answer('Запуск сообщения по команде /start_2 используя фильтр Command()',
-#                         reply_markup=main_kb2(message.from_user.id))
-
-#@start_router.message(F.text == '/register')
-#async def cmd_start_3(message: Message):
-#    await message.answer('Бот предназначен для медицинских специалистов. Вы медицинский специалист?',
-#                         reply_markup=medspec_kb(message.from_user.id))
-
+@start_router.message(Command("profile"))
+async def cmd_profile(message: Message):
+    user_id = message.from_user.id
+    if user_id in users_data:
+        data = users_data[user_id]
+        await message.answer(
+            f"Ваш профиль:\n"
+            f"Телефон: {data['phone']}\n"
+            f"ФИО: {data['full_name']}\n"
+            f"Email: {data['email']}\n"
+            f"Город: {data['city']}\n"
+            f"Медицинское учреждение: {data['clinic']}\n"
+            f"Должность: {data['position']}"
+        )
+    else:
+        await message.answer("Вы пока не прошли регистрацию 🚀")
