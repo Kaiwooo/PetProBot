@@ -21,8 +21,9 @@ class Registration(StatesGroup):
     position = State()
     confirmation = State()
 
-@registration_router.callback_query(F.data == 'is_doctor_yes')
+@registration_router.callback_query(F.data == 'registration')
 async def start_registration_callback(callback: CallbackQuery, state: FSMContext):
+    await callback.message.edit_reply_markup()
     await callback.message.answer('Для регистрации, нам потребуются Ваши согласия')
     await callback.message.answer(
         'Я принимаю <a href="https://www.pet-net.ru/page/partnership">Соглашение об обработке Персональных Данных</a>',
@@ -205,7 +206,8 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     users_data[callback.from_user.id] = data
     await callback.message.edit_text(
-        f"Уважаемый {data['full_name']}, спасибо за регистрацию!",
+        f"Уважаемый {data['full_name']}, спасибо за регистрацию!\n"
+        f"Для подтверждения регистрации с Вами свяжется медицинский представитель.",
         reply_markup=reg_user_kb(callback.from_user.id),
     )
     await state.clear() # очищаем FSM

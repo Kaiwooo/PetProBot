@@ -3,7 +3,7 @@ from aiogram import Router
 from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from keyboards.inline_kb import main_kb
+from keyboards.inline_kb import start_kb
 
 logger = logging.getLogger(__name__)
 special_start_router = Router()
@@ -36,7 +36,7 @@ async def special_start(message: Message):
             await message.answer_animation(
                 animation=vip_data["animation"],
                 caption=vip_data["caption"],
-                reply_markup=main_kb(message.from_user.id)
+                reply_markup=start_kb(message.from_user.id)
             )
         except:
             await message.answer_photo(

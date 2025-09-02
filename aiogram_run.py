@@ -1,5 +1,6 @@
 import asyncio
 from create_bot import bot, dp, scheduler
+from handlers.account import account_router
 from handlers.registration import registration_router
 from handlers.start import start_router
 
@@ -9,6 +10,7 @@ async def main():
     # регистрация роутеров
     dp.include_router(start_router)
     dp.include_router(registration_router)
+    dp.include_router(account_router)
 
     # запуск бота в режиме long polling при запуске бот очищает все обновления, которые были за его моменты бездействия
     try:
