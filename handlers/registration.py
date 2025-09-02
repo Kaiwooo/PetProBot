@@ -36,14 +36,14 @@ async def process_privacy(callback: CallbackQuery, state: FSMContext):
         await state.update_data(privacy=True)
         await callback.answer("✅ Согласие на ПД получено")  # маленькое уведомление
         await callback.message.answer(
-            "Для продолжения нам потребуется Ваше '''Согласие на коммуникацию, в том числе маркетингового характера через указанные вами способы связи. Обещаем, много писать не будет'''",
+            "Для продолжения нам потребуется Ваше '''Согласие на коммуникацию''', в том числе маркетингового характера, через указанные вами способы связи.\n Обещаем, много писать не будеv",
             reply_markup=marketing_kb(callback.from_user.id)
         )
         await state.set_state(Registration.marketing)
         await callback.answer()
     else:
         await state.update_data(privacy=False)
-        await callback.answer("Без согласия на обработку ПД регистрация невозможна", show_alert=True)
+        await callback.answer("Без '''Согласие на обработку Персональных Данных''' регистрация невозможна", show_alert=True)
         await state.clear()
 
 # ------------------- Получение согласия Маркетинг-------------------
@@ -60,7 +60,7 @@ async def process_marketing(callback: CallbackQuery, state: FSMContext):
         await callback.answer()
     else:
         await state.update_data(privacy=False)
-        await callback.answer("К сожалению, мы не можем вас зарегистрировать без возможности коммуницировать с вами", show_alert=True)
+        await callback.answer("К сожалению, мы не Регистрируем без возможности коммуницировать с вами", show_alert=True)
         await state.clear()
 
 @registration_router.message(F.contact, Registration.phone)
