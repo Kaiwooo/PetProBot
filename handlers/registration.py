@@ -23,8 +23,9 @@ class Registration(StatesGroup):
 
 @registration_router.callback_query(F.data == 'is_doctor_yes')
 async def start_registration_callback(callback: CallbackQuery, state: FSMContext):
+    await callback.message.answer('Для регистрации, нам потребуются Ваши согласия')
     await callback.message.answer(
-        'Нам потребуется ваше согласие на обработку ПД',
+        'Я принимаю <a href="https://www.pet-net.ru/page/partnership">Соглашение об обработке Персональных Данных</a>',
         reply_markup=privacy_kb(callback.from_user.id)
     )
     await state.set_state(Registration.privacy)
@@ -38,7 +39,7 @@ async def process_privacy(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_reply_markup()  # убираем кнопки
         await callback.answer('✅ Согласие на ПД получено')  # маленькое уведомление
         await callback.message.answer(
-            'Для продолжения примите "Согласие на коммуникацию" (в том числе маркетингового характера), через указанные вами способы связи.\n Обещаем, много писать не будем',
+            'Я принимаю <a href="https://www.pet-net.ru/page/partnership">Соглашение о получении информационных сообщений, в том числе маркетингового характера</a>',
             reply_markup=marketing_kb(callback.from_user.id)
         )
         await state.set_state(Registration.marketing)
@@ -56,7 +57,7 @@ async def process_marketing(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_reply_markup()  # убираем кнопки
         await callback.answer('✅ Согласие на маркетинг получено')  # toast
         await callback.message.answer(
-            'Пожалуйста поделитесь своим телефоном',
+            'Благодарим вас за принятие соглашений, а теперь укажите Ваш номер телефона',
             reply_markup=phone_kb()
     )
         await state.set_state(Registration.phone)
@@ -103,7 +104,7 @@ async def process_email(message: Message, state: FSMContext):
         await state.update_data(edit_field=None)
         await show_confirmation(message, state)  # тут важно, чтобы функция была определена
         return
-    await message.answer('Укажите Ваш город:')
+    await message.answer('Укажите город, в котором Вы работаете:')
     await state.set_state(Registration.city)
 
 @registration_router.message(Registration.city)
