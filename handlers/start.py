@@ -8,25 +8,25 @@ start_router = Router()
 
 @start_router.message(CommandStart())
 async def cmd_start(message: Message, command: Command):
-    user_id = message.from_user.id
+    tg_user_id = message.from_user.id
     command_args: str = command.args  # получаем payload после /start
 
     if command_args:
         if command_args.lower() == "yana":
             await message.answer("Вас пригласила Яна.")
 
-    if user_id in users_data:
+    if tg_user_id in users_data:
         # зарегистрированный пользователь
-        full_name = users_data[user_id].get("full_name", "Участник")
+        full_name = users_data[tg_user_id].get("full_name", "Участник")
         await message.answer(
             f"Рады вас видеть, {full_name}! 👋",
-            reply_markup=reg_user_kb(user_id)
+            reply_markup=reg_user_kb(tg_user_id)
         )
     else:
         # новый пользователь
         await message.answer(
             "Вас приветствует бот профессионального сообщества врачей PET.PRO",
-            reply_markup=main_kb(user_id)
+            reply_markup=main_kb(tg_user_id)
         )
 
 @start_router.callback_query(F.data == 'main_menu')
