@@ -1,4 +1,3 @@
-import re
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
@@ -15,7 +14,7 @@ class Registration(StatesGroup):
     marketing = State()
     phone = State()
     full_name = State()
-    email = State()
+    # email = State()
     city = State()
     clinic = State()
     position = State()
@@ -86,27 +85,30 @@ async def process_full_name(message: Message, state: FSMContext):
         await state.update_data(edit_field=None)
         await show_confirmation(message, state)
         return
-    await message.answer('Введите ваш Email:')
-    await state.set_state(Registration.email)
 
-# ------------------- валидация email-------------------
-def is_valid_email(email: str) -> bool:
-    pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-    return re.fullmatch(pattern, email) is not None
-
-@registration_router.message(Registration.email)
-async def process_email(message: Message, state: FSMContext):
-    if not is_valid_email(message.text):
-        await message.answer('❌ Некорректный email!\nПример: example@mail.com')
-        return
-    await state.update_data(email=message.text)
-    data = await state.get_data()
-    if data.get('edit_field') == 'email':
-        await state.update_data(edit_field=None)
-        await show_confirmation(message, state)  # тут важно, чтобы функция была определена
-        return
     await message.answer('Укажите город, в котором Вы работаете:')
     await state.set_state(Registration.city)
+#     await message.answer('Введите ваш Email:')
+# #     await state.set_state(Registration.email)
+# #
+# # # # ------------------- валидация email-------------------
+# # # def is_valid_email(email: str) -> bool:
+# # #     pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
+# # #     return re.fullmatch(pattern, email) is not None
+# # #
+# # # @registration_router.message(Registration.email)
+# # # async def process_email(message: Message, state: FSMContext):
+# # #     if not is_valid_email(message.text):
+# # #         await message.answer('❌ Некорректный email!\nПример: example@mail.com')
+# # #         return
+# # #     await state.update_data(email=message.text)
+# # #     data = await state.get_data()
+# # #     if data.get('edit_field') == 'email':
+# # #         await state.update_data(edit_field=None)
+# # #         await show_confirmation(message, state)  # тут важно, чтобы функция была определена
+# # #         return
+# # #     await message.answer('Укажите город, в котором Вы работаете:')
+# # #     await state.set_state(Registration.city)
 
 @registration_router.message(Registration.city)
 async def process_city(message: Message, state: FSMContext):
@@ -150,7 +152,7 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
         f"Проверьте введённые данные:\n\n"
         f"Телефон: {data['phone']}\n"
         f"ФИО: {data['full_name']}\n"
-        f"Email: {data['email']}\n"
+        # f"Email: {data['email']}\n"
         f"Город: {data['city']}\n"
         f"Медицинское учреждение: {data['clinic']}\n"
         f"Должность: {data['position']}"
@@ -165,38 +167,51 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
         await obj.answer(summary, reply_markup=keyboard)
 
 # ------------------- Обработчики кнопок "Исправить ..." -------------------
+
 @registration_router.callback_query(F.data == 'edit_full_name', Registration.confirmation)
 async def edit_full_name(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='full_name')
-    await callback.message.answer('Введите корректное ФИО:')
+    try:    # попробуем отредактировать предыдущее (подтверждающее) сообщение бота
+        await callback.message.edit_text("Введите корректное ФИО:", reply_markup=None)
+    except Exception:   # если редактирование не удалось (например, сообщение нельзя редактировать), упадём обратно к отправке нового сообщения, но это редкий случай
+        await callback.message.answer("Введите корректное ФИО:")
     await state.set_state(Registration.full_name)
     await callback.answer()
 
-@registration_router.callback_query(F.data == 'edit_email', Registration.confirmation)
-async def edit_email(callback: CallbackQuery, state: FSMContext):
-    await state.update_data(edit_field='email')
-    await callback.message.answer('Введите корректный Email:')
-    await state.set_state(Registration.email)
-    await callback.answer()
+# @registration_router.callback_query(F.data == 'edit_email', Registration.confirmation)
+# async def edit_email(callback: CallbackQuery, state: FSMContext):
+#     await state.update_data(edit_field='email')
+#     await callback.message.answer('Введите корректный Email:')
+#     await state.set_state(Registration.email)
+#     await callback.answer()
 
 @registration_router.callback_query(F.data == 'edit_city', Registration.confirmation)
 async def edit_city(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='city')
-    await callback.message.answer('Введите корректный город:')
+    try:
+        await callback.message.edit_text('Введите корректный город:', reply_markup=None)
+    except Exception:
+        await callback.message.answer('Введите корректный город:')
     await state.set_state(Registration.city)
     await callback.answer()
 
 @registration_router.callback_query(F.data == 'edit_clinic', Registration.confirmation)
 async def edit_clinic(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='clinic')
-    await callback.message.answer('Введите корректное медицинское учреждение:')
+    try:
+        await callback.message.edit_text('Введите корректное медицинское учреждение:', reply_markup=None)
+    except Exception:
+        await callback.message.answer('Введите корректное медицинское учреждение:')
     await state.set_state(Registration.clinic)
     await callback.answer()
 
 @registration_router.callback_query(F.data == 'edit_position', Registration.confirmation)
 async def edit_position(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='position')
-    await callback.message.answer('Введите корректную должность / специализацию:')
+    try:
+        await callback.message.edit_text('Введите корректную должность / специализацию:', reply_markup=None)
+    except Exception:
+        await callback.message.answer('Введите корректную должность / специализацию:')
     await state.set_state(Registration.position)
     await callback.answer()
 

@@ -14,16 +14,17 @@ async def cmd_start(message: Message, command: Command):
         if command_args.lower() == "yana":
             await message.answer("Вас пригласила Яна.")
 
-    if message.from_user.id in users_data: #если уже зарегистрированный пользователь
+    if message.from_user.id in admins: #если админ
+        await message.answer(
+            'Пожалуйста выберите нужный пункт в меню',
+            #reply_markup=combined_kb
+            reply_markup=start_kb(message.from_user.id, extra = True)
+        )
+    elif message.from_user.id in users_data: #если уже зарегистрированный пользователь
         full_name = users_data[message.from_user.id].get("full_name")
         await message.answer(
             f"Рады вас видеть, {full_name}! 👋",
             reply_markup=reg_user_kb(message.from_user.id)
-        )
-    elif message.from_user.id in admins: #если админ
-        await message.answer(
-            'Пожалуйста выберите нужный пункт в меню',
-            reply_markup=admin_kb(message.from_user.id)
         )
     # elif message.from_user.id in users_data2: #если админ
     #     await message.answer(
@@ -39,16 +40,16 @@ async def cmd_start(message: Message, command: Command):
 @start_router.callback_query(F.data == 'main_menu')
 async def cmd_main_menu(callback: CallbackQuery):
     await callback.message.edit_reply_markup()
-    if callback.from_user.id in users_data: #если уже зарегистрированный пользователь
+    if callback.from_user.id in admins: #если админ
+        await callback.message.answer(
+            'Пожалуйста выберите нужный пункт в меню',
+            reply_markup=start_kb(callback.from_user.id, extra = True)
+        )
+    elif callback.from_user.id in users_data: #если уже зарегистрированный пользователь
         full_name = users_data[callback.from_user.id].get("full_name")
         await callback.message.answer(
             f"Рады вас видеть, {full_name}! 👋",
             reply_markup=reg_user_kb(callback.from_user.id)
-        )
-    elif callback.from_user.id in admins: #если админ
-        await callback.message.answer(
-            'Пожалуйста выберите нужный пункт в меню',
-            reply_markup=admin_kb(callback.from_user.id)
         )
     # elif message.from_user.id in users_data2: #если админ
     #     await message.answer(
