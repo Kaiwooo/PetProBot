@@ -4,6 +4,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from db_handler.user_storage import patient_data
 from keyboards.inline_kb import reg_user_kb, cooperation_kb, confirm_patient_kb
+from datetime import datetime
 
 account_router = Router()
 
@@ -120,7 +121,18 @@ async def edit_full_name(callback: CallbackQuery, state: FSMContext):
 @account_router.callback_query(F.data == 'confirm_patient')
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    patient_data[callback.from_user.id] = data
+
+    patient_record = {
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "full_name": data["full_name"],
+        "phone_number": data["phone_number"],
+    }
+
+    if callback.from_user.id not in patient_data:
+        patient_data[callback.from_user.id] = []
+
+    patient_data[callback.from_user.id].append(patient_record)
+
     await callback.message.edit_text(
         # f"Уважаемый {data['full_name']}, мы приняли ваш запрос на запись
         f"Мы приняли ваш запрос на запись {data['full_name']} в центр ПЭТ-Технолоджи",

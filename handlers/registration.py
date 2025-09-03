@@ -5,6 +5,7 @@ from aiogram.fsm.state import StatesGroup, State
 from db_handler.user_storage import users_data
 from keyboards.inline_kb import reg_user_kb, confirm_reg_kb, privacy_kb, marketing_kb
 from keyboards.regular_kb import phone_kb
+from datetime import datetime
 
 registration_router = Router()
 
@@ -219,6 +220,8 @@ async def edit_position(callback: CallbackQuery, state: FSMContext):
 @registration_router.callback_query(F.data == 'confirm_registration')
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
+    data['username'] = callback.from_user.username or None
+    data['reg_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     users_data[callback.from_user.id] = data
     await callback.message.edit_text(
         f"Уважаемый {data['full_name']}, спасибо за регистрацию!\n"
