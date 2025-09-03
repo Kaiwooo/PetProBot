@@ -2,9 +2,9 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from db_handler.user_storage import patient_data
 from keyboards.inline_kb import reg_user_kb, cooperation_kb, confirm_patient_kb
 from datetime import datetime
+from db_handler.db import get_pool
 
 account_router = Router()
 
@@ -122,20 +122,31 @@ async def edit_full_name(callback: CallbackQuery, state: FSMContext):
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
-    patient_record = {
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "full_name": data["full_name"],
-        "phone_number": data["phone_number"],
-    }
+    agent_id = callback.from_user.id
+    full_name = data.get('full_name', '')
+    phone = data.get('phone', None)
+    created = datetime.now()
 
-    if callback.from_user.id not in patient_data:
-        patient_data[callback.from_user.id] = []
-
-    patient_data[callback.from_user.id].append(patient_record)
+    # Сохраняем в Postgres
+    async with get_pool().acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO customers(
+                agent_id,
+                full_name,
+                phone_number,
+                created
+            ) VALUES ($1,$2,$3,$4)
+            """,
+            agent_id,
+            full_name,
+            phone,
+            created
+        )
 
     await callback.message.edit_text(
         # f"Уважаемый {data['full_name']}, мы приняли ваш запрос на запись
-        f"Мы приняли ваш запрос на запись {data['full_name']} в центр ПЭТ-Технолоджи",
+        f"Мы приняли ваш запрос на запись {data['full_name']}",
         reply_markup=reg_user_kb(callback.from_user.id)
     )
     await state.clear() # очищаем FSM

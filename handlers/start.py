@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.types import Message, CallbackQuery
 from keyboards.inline_kb import start_kb, medspec_kb, about_kb, petnetrubot_kb, reg_user_kb, admin_kb, verified_user_kb
-from handlers.registration import users_data
+#from handlers.registration import users_data
 from create_bot import admins
 
 start_router = Router()
@@ -20,12 +20,12 @@ async def cmd_start(message: Message, command: Command):
             #reply_markup=combined_kb
             reply_markup=start_kb(message.from_user.id, extra = True)
         )
-    elif message.from_user.id in users_data: #если уже зарегистрированный пользователь
-        full_name = users_data[message.from_user.id].get("full_name")
-        await message.answer(
-            f"Рады вас видеть, {full_name}! 👋",
-            reply_markup=reg_user_kb(message.from_user.id)
-        )
+    # elif message.from_user.id in users_data: #если уже зарегистрированный пользователь
+    #     full_name = users_data[message.from_user.id].get("full_name")
+    #     await message.answer(
+    #         f"Рады вас видеть, {full_name}! 👋",
+    #         reply_markup=reg_user_kb(message.from_user.id)
+    #     )
     # elif message.from_user.id in users_data2: #если админ
     #     await message.answer(
     #         'Пожалуйста выберите нужный пункт в меню',
@@ -45,12 +45,12 @@ async def cmd_main_menu(callback: CallbackQuery):
             'Пожалуйста выберите нужный пункт в меню',
             reply_markup=start_kb(callback.from_user.id, extra = True)
         )
-    elif callback.from_user.id in users_data: #если уже зарегистрированный пользователь
-        full_name = users_data[callback.from_user.id].get("full_name")
-        await callback.message.answer(
-            f"Рады вас видеть, {full_name}! 👋",
-            reply_markup=reg_user_kb(callback.from_user.id)
-        )
+    # elif callback.from_user.id in users_data: #если уже зарегистрированный пользователь
+    #     full_name = users_data[callback.from_user.id].get("full_name")
+    #     await callback.message.answer(
+    #         f"Рады вас видеть, {full_name}! 👋",
+    #         reply_markup=reg_user_kb(callback.from_user.id)
+    #     )
     # elif message.from_user.id in users_data2: #если админ
     #     await message.answer(
     #         'Пожалуйста выберите нужный пункт в меню',

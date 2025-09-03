@@ -2,10 +2,10 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery, ReplyKeyboardRemove
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
-from db_handler.user_storage import users_data
 from keyboards.inline_kb import reg_user_kb, confirm_reg_kb, privacy_kb, marketing_kb
 from keyboards.regular_kb import phone_kb
 from datetime import datetime
+from db_handler.db import get_pool
 
 registration_router = Router()
 
@@ -220,9 +220,63 @@ async def edit_position(callback: CallbackQuery, state: FSMContext):
 @registration_router.callback_query(F.data == 'confirm_registration')
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    data['username'] = callback.from_user.username or None
-    data['reg_date'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    users_data[callback.from_user.id] = data
+
+    # Telegram username
+    username = callback.from_user.username or None
+
+    # Дата регистрации
+    reg_date = datetime.now()
+
+    # full_name в Postgres хранится в одном поле, можно конкатенировать
+    full_name = data.get('full_name', '')
+
+    # Прочие поля
+    phone = data.get('phone', None)
+    city = data.get('city', None)
+    clinic = data.get('clinic', None)
+    position = data.get('position', None)
+    privacy = data.get('privacy', False)
+    marketing = data.get('marketing', False)
+
+    # Сохраняем в Postgres
+    async with get_pool().acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO agents(
+                telegram_id,
+                telegram_username,
+                full_name,
+                phone_number,
+                city,
+                organization,
+                position,
+                created,
+                privacy,
+                marketing
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+            ON CONFLICT (telegram_id) DO UPDATE SET
+                telegram_username = EXCLUDED.telegram_username,
+                full_name = EXCLUDED.full_name,
+                phone_number = EXCLUDED.phone_number,
+                city = EXCLUDED.city,
+                organization = EXCLUDED.organization,
+                position = EXCLUDED.position,
+                created = EXCLUDED.created,
+                privacy = EXCLUDED.privacy,
+                marketing = EXCLUDED.marketing
+            """,
+            callback.from_user.id,
+            username,
+            full_name,
+            phone,
+            city,
+            clinic,
+            position,
+            reg_date,
+            privacy,
+            marketing
+        )
+
     await callback.message.edit_text(
         f"Уважаемый {data['full_name']}, спасибо за регистрацию!\n"
         f"Для подтверждения регистрации с Вами свяжется медицинский представитель.",

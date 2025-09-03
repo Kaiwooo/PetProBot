@@ -2,6 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from db_handler.user_storage import users_data, patient_data
 from keyboards.inline_kb import admin_kb
+from db_handler.db import get_pool
 
 admin_router = Router()
 
@@ -15,29 +16,38 @@ async def admin_panel(callback: CallbackQuery):
 async def admin_agents(callback: CallbackQuery):
     await callback.message.edit_reply_markup()  # убираем кнопки
 
-    if not users_data:
-        await callback.message.answer("Нет зарегистрированных пользователей.", reply_markup=admin_kb(callback.from_user.id))
+    # Получаем всех агентов
+    async with get_pool().acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT *
+            FROM agents
+            ORDER BY created DESC
+        """)
+
+    if not rows:
+        await callback.message.answer("Нет зарегистрированных агентов.", reply_markup=admin_kb(callback.from_user.id))
         await callback.answer()
         return
 
-    total_agents = len(users_data)
-    await callback.message.answer(f"Всего зарегистрировано {total_agents} агентов:\n\n")
+    # Отправляем сообщение с количеством
+    total_agents = len(rows)
+    await callback.message.answer(f"Всего зарегистрировано {total_agents} агентов")
 
-    message_lines = []
-    for user_id, data in users_data.items():
-        reg_date = data.get('reg_date', 'Неизвестно')
-        full_name = data.get('full_name', 'Не указано')
-        phone = data.get('phone', 'Не указано')
-        username = f"@{data['username']}" if data.get('username') else 'Не указан'
-        city = data.get('city', 'Не указано')
-        clinic = data.get('clinic', 'Не указано')
-        position = data.get('position', 'Не указано')
+    # Формируем детальный список
+    lines = []
+    for row in rows:
+        created = row['created'].strftime('%Y-%m-%d %H:%M:%S') if row['created'] else 'Не указано'
+        full_name = row['full_name'] or 'Не указано'
+        phone = row['phone_number'] or 'Не указано'
+        username = f"@{row['telegram_username']}" if row['telegram_username'] else 'Не указан'
+        city = row['city'] or 'Не указано'
+        organization = row['organization'] or 'Не указано'
+        position = row['position'] or 'Не указано'
 
-        message_lines.append(
-            f"{reg_date}; {full_name}; {phone}; {username}; {city}; {clinic}; {position}"
-        )
+        lines.append(f"{created}; {full_name}; {phone}; {username}; {city}; {organization}; {position}")
 
-    full_message = "\n".join(message_lines)
+    # Отправляем одним сообщением (если много агентов, можно разбить на блоки)
+    full_message = "\n".join(lines)
     await callback.message.answer(full_message, reply_markup=admin_kb(callback.from_user.id))
     await callback.answer()  # убираем "часики" на кнопке
 
@@ -45,21 +55,40 @@ async def admin_agents(callback: CallbackQuery):
 async def admin_customers(callback: CallbackQuery):
     await callback.message.edit_reply_markup()  # убираем кнопки
 
-    if not patient_data:
-        await callback.message.answer("Нет заявок пациентов.", reply_markup=admin_kb(callback.from_user.id))
+    # Получаем всех пациентов вместе с информацией о врачах
+    async with get_pool().acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT 
+                c.full_name AS patient_name,
+                c.phone_number AS patient_phone,
+                c.created AS patient_created,
+                a.telegram_username AS agent_username,
+                a.full_name AS agent_full_name
+            FROM customers c
+            JOIN agents a ON c.agent_id = a.telegram_id
+            ORDER BY a.telegram_username, c.created DESC
+        """)
+
+    if not rows:
+        await callback.message.answer("Нет зарегистрированных пациентов.", reply_markup=admin_kb(callback.from_user.id))
         await callback.answer()
         return
 
-    for doctor_id, patients in patient_data.items():
-        doctor_user = users_data.get(doctor_id)
-        doctor_name = doctor_user.get("full_name", "Неизвестно")
-        doctor_username = doctor_user.get("username", "Нет username")
-        header = f"От врача: {doctor_name} (@{doctor_username})"
-        patient_lines = []
-        for patient in patients:
-            line = f"Дата: {patient['created_at']}; ФИО: {patient['full_name']}; Телефон: {patient['phone_number']}"
-            patient_lines.append(line)
-        message_text = header + "\n" + "\n".join(patient_lines)
+    # Группируем по врачу
+    grouped = {}
+    for row in rows:
+        agent = row['agent_username'] or 'Не указан'
+        if agent not in grouped:
+            grouped[agent] = []
+        grouped[agent].append(row)
+
+    # Формируем сообщения
+    for agent, patients in grouped.items():
+        lines = [f"Врач: @{agent}"]
+        for p in patients:
+            created = p['patient_created'].strftime('%Y-%m-%d %H:%M:%S') if p['patient_created'] else 'Не указано'
+            lines.append(f"{created}; {p['patient_name']}; {p['patient_phone']}")
+        message_text = "\n".join(lines)
         await callback.message.answer(message_text)
 
     await callback.message.answer('Это список всех пациентов', reply_markup=admin_kb(callback.from_user.id))
