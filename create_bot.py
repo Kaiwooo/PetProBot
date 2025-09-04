@@ -6,10 +6,12 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from decouple import config
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from middlewares.logging_user import UserLoggingMiddleware
+from aiogram.fsm.storage.redis import RedisStorage
 
 #from db_handler.db_class import PostgresHandler
 
 #pg_db = PostgresHandler(config('PG_LINK'))
+#redis_url = config('REDIS_LINK')
 scheduler = AsyncIOScheduler(timezone='Europe/Moscow')
 admins = [int(admin_id) for admin_id in config('ADMINS').split(',')]
 
@@ -17,5 +19,5 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 bot = Bot(token=config('TOKEN'), default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher(storage=MemoryStorage())
+dp = Dispatcher(storage=RedisStorage.from_url(config('REDIS_LINK')))
 dp.update.middleware(UserLoggingMiddleware())
