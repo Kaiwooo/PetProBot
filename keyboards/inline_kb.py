@@ -1,5 +1,4 @@
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from db_handler.user_storage import users_data
 #from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 def admin_kb(user_id: int):

@@ -61,11 +61,12 @@ async def admin_customers(callback: CallbackQuery):
                 c.full_name AS patient_name,
                 c.phone_number AS patient_phone,
                 c.created AS patient_created,
+                a.telegram_id AS agent_id,
                 a.telegram_username AS agent_username,
                 a.full_name AS agent_full_name
             FROM customers c
             JOIN agents a ON c.agent_id = a.telegram_id
-            ORDER BY a.telegram_username, c.created DESC
+            ORDER BY a.telegram_id, c.created DESC
         """)
 
     if not rows:
@@ -76,15 +77,19 @@ async def admin_customers(callback: CallbackQuery):
     # Группируем по врачу
     grouped = {}
     for row in rows:
-        agent = row['agent_username'] or 'Не указан'
-        if agent not in grouped:
-            grouped[agent] = []
-        grouped[agent].append(row)
+        agent_id = row['agent_id']
+        if agent_id not in grouped:
+            grouped[agent_id] = {
+                "full_name": row['agent_full_name'] or 'Не указано',
+                "username": row['agent_username'] or 'Не указан',
+                "patients": []
+            }
+        grouped[agent_id]["patients"].append(row)
 
     # Формируем сообщения
-    for agent, patients in grouped.items():
-        lines = [f"Врач: @{agent}"]
-        for p in patients:
+    for agent_info in grouped.values():
+        lines = [f"Врач: {agent_info['full_name']} (@{agent_info['username']})"]
+        for p in agent_info["patients"]:
             created = p['patient_created'].strftime('%Y-%m-%d %H:%M:%S') if p['patient_created'] else 'Не указано'
             lines.append(f"{created}; {p['patient_name']}; {p['patient_phone']}")
         message_text = "\n".join(lines)
