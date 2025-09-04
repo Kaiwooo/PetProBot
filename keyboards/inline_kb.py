@@ -47,8 +47,8 @@ def petnetrubot_kb(user_id: int):
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
 
-def reg_user_kb(user_id: int, extra: bool = False):
-    full_name = users_data.get(user_id).get("full_name")
+def reg_user_kb(user_id: int, full_name: str, extra: bool = False):
+    #full_name = users_data.get(user_id).get("full_name")
     # encoded_name = {full_name}
     kb_list = [
         # [InlineKeyboardButton(text='👨‍⚕️ Мой профиль', callback_data='my_profile')],
@@ -110,8 +110,8 @@ def verified_user_kb(user_id: int):
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
 
-def cooperation_kb(user_id: int):
-    full_name = users_data.get(user_id).get("full_name")
+def cooperation_kb(user_id: int, full_name: str):
+    #full_name = users_data.get(user_id).get("full_name")
     kb_list = [
         [InlineKeyboardButton(text='Вернуться в главное меню', callback_data='main_menu')],
         [InlineKeyboardButton(text='Заполнить договор', url='https://docs.google.com/document/d/1VQ2xMdnXdZGpRJWHajM6cZv5pif-o0qZ/edit?usp=sharing&ouid=115324883075267776916&rtpof=true&sd=true')],

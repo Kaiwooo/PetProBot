@@ -26,13 +26,19 @@ class PatientFromAgent(StatesGroup):
 @account_router.callback_query(F.data == 'cooperation')
 async def account_callback(callback: CallbackQuery):
     await callback.message.edit_reply_markup()
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT full_name FROM agents WHERE telegram_id=$1",
+            callback.from_user.id
+        )
+    full_name = row["full_name"]
     await callback.message.answer('Вы можете направлять платных пациентов за вознаграждение в размере 10% от стоимости ПЭТ/КТ (или других услуг).\n\n'
                                   'Как происходит сотрудничество?\n'
                                   '* Заполните договор о сотрудничестве\n'
                                   '* Выдайте пациенту рекомендацию для проведения ПЭТ/КТ и памятку по подготовке\n'
                                   '* Запишите пациента на услугу\n'
                                   '* После того, как пациент пройдет ПЭТ/КТ на платной основе, выплата придет Вам в ближайший четверг после дня исследования',
-                                  reply_markup=cooperation_kb(callback.from_user.id)
+                                  reply_markup=cooperation_kb(callback.from_user.id, full_name)
                                   )
 
 # @account_router.callback_query(F.data == 'docs_templates')
@@ -124,7 +130,7 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
 
     agent_id = callback.from_user.id
     full_name = data.get('full_name', '')
-    phone = data.get('phone', None)
+    phone_number = data.get('phone_number', None)
     created = datetime.now()
 
     # Сохраняем в Postgres
@@ -140,13 +146,13 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
             """,
             agent_id,
             full_name,
-            phone,
+            phone_number,
             created
         )
 
     await callback.message.edit_text(
         # f"Уважаемый {data['full_name']}, мы приняли ваш запрос на запись
         f"Мы приняли ваш запрос на запись {data['full_name']}",
-        reply_markup=reg_user_kb(callback.from_user.id)
+        reply_markup=reg_user_kb(callback.from_user.id, full_name)
     )
     await state.clear() # очищаем FSM
