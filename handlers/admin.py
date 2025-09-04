@@ -1,6 +1,5 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
-from db_handler.user_storage import users_data, patient_data
 from keyboards.inline_kb import admin_kb
 from db_handler.db import get_pool
 

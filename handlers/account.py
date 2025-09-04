@@ -26,6 +26,7 @@ class PatientFromAgent(StatesGroup):
 @account_router.callback_query(F.data == 'cooperation')
 async def account_callback(callback: CallbackQuery):
     await callback.message.edit_reply_markup()
+    await callback.answer()
     async with get_pool().acquire() as conn:
         row = await conn.fetchrow(
             "SELECT full_name FROM agents WHERE telegram_id=$1",
@@ -40,20 +41,6 @@ async def account_callback(callback: CallbackQuery):
                                   '* После того, как пациент пройдет ПЭТ/КТ на платной основе, выплата придет Вам в ближайший четверг после дня исследования',
                                   reply_markup=cooperation_kb(callback.from_user.id, full_name)
                                   )
-
-# @account_router.callback_query(F.data == 'docs_templates')
-# async def account_callback(callback: CallbackQuery):
-#     await callback.message.edit_reply_markup()
-#     await callback.message.answer('Выберите тип договора',
-#         reply_markup=cooperation_kb(callback.from_user.id)
-#     )
-
-# @account_router.callback_query(F.data == 'download_info')
-# async def account_callback(callback: CallbackQuery):
-#     await callback.message.edit_reply_markup()
-#     await callback.message.answer('Выберите необходимую информацию для ознакомления',
-#                                   reply_markup=docs_kb(callback.from_user.id)
-#     )
 
 @account_router.callback_query(F.data == 'make_request')
 async def account_callback(callback: CallbackQuery, state: FSMContext):

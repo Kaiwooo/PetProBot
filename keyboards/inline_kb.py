@@ -48,16 +48,11 @@ def petnetrubot_kb(user_id: int):
     return keyboard
 
 def reg_user_kb(user_id: int, full_name: str, extra: bool = False):
-    #full_name = users_data.get(user_id).get("full_name")
-    # encoded_name = {full_name}
     kb_list = [
         # [InlineKeyboardButton(text='👨‍⚕️ Мой профиль', callback_data='my_profile')],
         [InlineKeyboardButton(text='Скачать файлы для врачей', url='https://www.pet-net.ru/page/komu-pokazano')],
         [InlineKeyboardButton(text='Связаться с главным радиологом', url=f'https://wa.me/74950330001?text=Здравствуйте,%20меня%20зовут%20{full_name}.%20У%20меня%20вопрос')],
         [InlineKeyboardButton(text='Сотрудничество', callback_data='cooperation')]
-        # [InlineKeyboardButton(text='Шаблоны договоров', callback_data='docs_templates')],
-        # [InlineKeyboardButton(text='Скачать информацию', callback_data='download_info')],
-
     ]
     if extra:
     # if user_id in admins:
@@ -117,8 +112,6 @@ def cooperation_kb(user_id: int, full_name: str):
         [InlineKeyboardButton(text='Заполнить договор', url='https://docs.google.com/document/d/1VQ2xMdnXdZGpRJWHajM6cZv5pif-o0qZ/edit?usp=sharing&ouid=115324883075267776916&rtpof=true&sd=true')],
         [InlineKeyboardButton(text='Записать пациента', callback_data='make_request')],
         [InlineKeyboardButton(text='Остались вопросы', url=f'https://wa.me/74950330001?text=Здравствуйте,%20меня%20зовут%20{full_name}.%20У%20меня%20вопрос%20по%20сотрудничеству')]
-        # [InlineKeyboardButton(text='Агентский договор с юр. лицом', url='https://docs.google.com/document/d/1clnpvUzvyLBCYAuDi7k843w2i-ToyOyn/edit?usp=sharing&ouid=115324883075267776916&rtpof=true&sd=true')],
-        # [InlineKeyboardButton(text='Агентский договор с юр. лицом по гарантийным письмам', url='https://docs.google.com/document/d/13BLPArOc5yli6sqCGM0P51IMQ9ahOunJ/edit?usp=sharing&ouid=115324883075267776916&rtpof=true&sd=true')]
         ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard

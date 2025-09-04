@@ -24,13 +24,13 @@ class Registration(StatesGroup):
 @registration_router.callback_query(F.data == 'registration')
 async def start_registration_callback(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_reply_markup()
+    await callback.answer() #убираем часики на кнопке
     await callback.message.answer('Для регистрации, нам потребуются Ваши согласия')
     await callback.message.answer(
         'Я принимаю <a href="https://www.pet-net.ru/page/partnership">Соглашение об обработке Персональных Данных</a>',
         reply_markup=privacy_kb(callback.from_user.id)
     )
     await state.set_state(Registration.privacy)
-    await callback.answer()  # чтобы убрать "часики" на кнопке
 
 # ------------------- Получение согласия ПД -------------------
 @registration_router.callback_query(F.data.in_(['privacy_agreement_yes', 'privacy_agreement_no']))
@@ -60,7 +60,7 @@ async def process_marketing(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer(
             'Благодарим вас за принятие соглашений, а теперь укажите Ваш номер телефона',
             reply_markup=phone_kb()
-    )
+        )
         await state.set_state(Registration.phone)
         await callback.answer()
     else:
@@ -77,7 +77,6 @@ async def process_phone(message: Message, state: FSMContext):
     await message.answer('Спасибо! А теперь введи ваше ФИО:', reply_markup=ReplyKeyboardRemove())
     await state.set_state(Registration.full_name)
 
-
 @registration_router.message(Registration.full_name)
 async def process_full_name(message: Message, state: FSMContext):
     await state.update_data(full_name=message.text)
@@ -86,7 +85,6 @@ async def process_full_name(message: Message, state: FSMContext):
         await state.update_data(edit_field=None)
         await show_confirmation(message, state)
         return
-
     await message.answer('Укажите город, в котором Вы работаете:')
     await state.set_state(Registration.city)
 #     await message.answer('Введите ваш Email:')
@@ -115,12 +113,10 @@ async def process_full_name(message: Message, state: FSMContext):
 async def process_city(message: Message, state: FSMContext):
     await state.update_data(city=message.text)
     data = await state.get_data()
-
     if data.get('edit_field') == 'city':
         await state.update_data(edit_field=None)
         await show_confirmation(message, state)
         return
-
     await message.answer('Введите медицинское учреждение:')
     await state.set_state(Registration.clinic)
 
@@ -158,9 +154,7 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
         f"Медицинское учреждение: {data['clinic']}\n"
         f"Должность: {data['position']}"
     )
-
     keyboard = confirm_reg_kb(obj.from_user.id)
-
     if isinstance(obj, CallbackQuery):
         await obj.message.edit_text(summary, reply_markup=keyboard)
         await obj.answer()
@@ -221,16 +215,9 @@ async def edit_position(callback: CallbackQuery, state: FSMContext):
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
-    # Telegram username
-    username = callback.from_user.username or None
-
-    # Дата регистрации
-    reg_date = datetime.now()
-
-    # full_name в Postgres хранится в одном поле, можно конкатенировать
+    username = callback.from_user.username or None  # Telegram username или None если нет
+    reg_date = datetime.now()   # Дата регистрации
     full_name = data.get('full_name', '')
-
-    # Прочие поля
     phone = data.get('phone', None)
     city = data.get('city', None)
     clinic = data.get('clinic', None)
@@ -280,6 +267,6 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         f"Уважаемый {data['full_name']}, спасибо за регистрацию!\n"
         f"Для подтверждения регистрации с Вами свяжется медицинский представитель.",
-        reply_markup=reg_user_kb(callback.from_user.id),
+        reply_markup=reg_user_kb(callback.from_user.id, full_name),
     )
     await state.clear() # очищаем FSM
