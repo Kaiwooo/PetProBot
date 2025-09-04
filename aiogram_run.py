@@ -1,3 +1,5 @@
+#!/usr/bin/env
+
 import asyncio
 from create_bot import bot, dp, scheduler
 from handlers.account import account_router
