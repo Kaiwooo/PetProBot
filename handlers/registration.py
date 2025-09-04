@@ -6,6 +6,7 @@ from keyboards.inline_kb import reg_user_kb, confirm_reg_kb, privacy_kb, marketi
 from keyboards.regular_kb import phone_kb
 from datetime import datetime
 from db_handler.db import get_pool
+from middlewares.decorators import skip_if_registered
 
 registration_router = Router()
 
@@ -146,7 +147,8 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
     data = await state.get_data()
     await state.set_state(Registration.confirmation)
     summary = (
-        f"Проверьте введённые данные:\n\n"
+        f"Пожалуйста внимательно проверьте введённые данные.\n"
+        f"Вы не сможете изменить их самостоятельно без медицинского представителя:\n\n"
         f"Телефон: {data['phone']}\n"
         f"ФИО: {data['full_name']}\n"
         # f"Email: {data['email']}\n"
@@ -164,6 +166,7 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
 # ------------------- Обработчики кнопок "Исправить ..." -------------------
 
 @registration_router.callback_query(F.data == 'edit_full_name', Registration.confirmation)
+@skip_if_registered
 async def edit_full_name(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='full_name')
     try:    # попробуем отредактировать предыдущее (подтверждающее) сообщение бота
@@ -181,6 +184,7 @@ async def edit_full_name(callback: CallbackQuery, state: FSMContext):
 #     await callback.answer()
 
 @registration_router.callback_query(F.data == 'edit_city', Registration.confirmation)
+@skip_if_registered
 async def edit_city(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='city')
     try:
@@ -191,6 +195,7 @@ async def edit_city(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @registration_router.callback_query(F.data == 'edit_clinic', Registration.confirmation)
+@skip_if_registered
 async def edit_clinic(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='clinic')
     try:
@@ -201,6 +206,7 @@ async def edit_clinic(callback: CallbackQuery, state: FSMContext):
     await callback.answer()
 
 @registration_router.callback_query(F.data == 'edit_position', Registration.confirmation)
+@skip_if_registered
 async def edit_position(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='position')
     try:
@@ -212,6 +218,7 @@ async def edit_position(callback: CallbackQuery, state: FSMContext):
 
 # ------------------- Подтверждение регистрации -------------------
 @registration_router.callback_query(F.data == 'confirm_registration')
+@skip_if_registered
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 

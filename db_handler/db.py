@@ -24,6 +24,14 @@ async def close_db():
     if db_pool:
         await db_pool.close()
 
+async def is_user_registered(telegram_id: int) -> bool:
+    """Проверка, есть ли пользователь в таблице agents"""
+    async with get_pool().acquire() as conn:
+        row = await conn.fetchrow(
+            "SELECT telegram_id FROM agents WHERE telegram_id=$1", telegram_id
+        )
+    return row is not None
+
 # ------------------ AGENTS ------------------
 
 async def add_agent(telegram_id: int, username: str | None, full_name: str,
