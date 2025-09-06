@@ -1,18 +1,18 @@
 from aiogram import Router, F
-from aiogram.filters import CommandStart
+from aiogram.filters import CommandStart, Command
 from aiogram.types import Message, CallbackQuery
-from keyboards.inline_kb import start_kb, medspec_kb, about_kb, petnetrubot_kb, reg_user_kb
-from db_handler.db import get_pool
+from keyboards.inline_kb import start_kb, medspec_kb, about_kb, petnetrubot_kb, reg_user_kb, admin_kb
+from db_handler.postgres import get_pool
 from create_bot import admins
 
 start_router = Router()
 
 @start_router.message(CommandStart())
-async def cmd_start(message: Message):
+async def cmd_start(message: Message, command: Command):
     if message.from_user.id in admins: #если админ
         await message.answer(
             'Пожалуйста выберите нужный пункт в меню',
-            reply_markup=start_kb(message.from_user.id, extra = True)
+            reply_markup=admin_kb(message.from_user.id)
         )
     else:
         async with get_pool().acquire() as conn:
@@ -36,7 +36,7 @@ async def cmd_main_menu(callback: CallbackQuery):
     if callback.from_user.id in admins: #если админ
         await callback.message.answer(
             'Пожалуйста выберите нужный пункт в меню',
-            reply_markup=start_kb(callback.from_user.id, extra = True)
+            reply_markup=admin_kb(callback.from_user.id)
         )
     else:
         async with get_pool().acquire() as conn:

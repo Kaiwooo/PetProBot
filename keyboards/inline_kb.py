@@ -3,9 +3,10 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 def admin_kb(user_id: int):
     kb_list = [
-        [InlineKeyboardButton(text='Вернуться в главное меню', callback_data='main_menu')],
+        #[InlineKeyboardButton(text='Вернуться в главное меню', callback_data='main_menu')],
         [InlineKeyboardButton(text='Посмотреть агентов', callback_data='admin_agents')],
         [InlineKeyboardButton(text='Посмотреть пациентов', callback_data='admin_customers')],
+        [InlineKeyboardButton(text='Посмотреть незавершенные регистрации', callback_data='admin_incomplete_agents')],
         [InlineKeyboardButton(text='Отправить сообщение', callback_data='admin_send_message')]
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)

@@ -1,7 +1,10 @@
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
+from middlewares.redis_registrations import FSMStateInspector
 from keyboards.inline_kb import admin_kb
-from db_handler.db import get_pool
+from db_handler.postgres import get_pool
+import redis.asyncio
+from decouple import config
 
 admin_router = Router()
 
@@ -94,6 +97,48 @@ async def admin_customers(callback: CallbackQuery):
             lines.append(f"{created}; {p['patient_name']}; {p['patient_phone']}")
         message_text = "\n".join(lines)
         await callback.message.answer(message_text)
-
     await callback.message.answer('Это список всех пациентов', reply_markup=admin_kb(callback.from_user.id))
+    await callback.answer()
+
+@admin_router.callback_query(F.data == "admin_incomplete_agents")
+async def show_incomplete_agents(callback: CallbackQuery):
+    await callback.message.edit_reply_markup()
+    inspector = FSMStateInspector(redis.Redis.from_url(config("REDIS_LINK"), decode_responses=True))
+    registration_states = inspector.get_states_by_pattern("Registration")
+    if not registration_states:
+        await callback.message.answer(
+            "Нет пользователей с незавершённой регистрацией.",
+            reply_markup=admin_kb(callback.from_user.id),
+        )
+        await callback.answer()
+        return
+    lines = []
+    total = len(registration_states)
+    await callback.message.answer("Пользователей с незавершённой регистрацией: "+ str(total))
+    for key, state_value in registration_states.items():
+        user_data = inspector.get_user_data(key)
+        if user_data.get("started"):
+            lines.append(f"Регистрация начата: {user_data['started']}")
+        if user_data.get("telegram_username"):
+            lines.append(f"TG_Username: @{user_data['telegram_username']}")
+        if user_data.get("phone"):
+            lines.append(f"Телефон: {user_data['phone']}")
+        if user_data.get("full_name"):
+            lines.append(f"ФИО: {user_data['full_name']}")
+        if user_data.get("city"):
+            lines.append(f"Город: {user_data['city']}")
+        if user_data.get("clinic"):
+            lines.append(f"Учреждение: {user_data['clinic']}")
+        if user_data.get("position"):
+            lines.append(f"Должность: {user_data['position']}")
+        lines.append(f"{'-'*50}")
+    # режем длинные ответы по 3500 символов
+    batch = ""
+    for line in lines:
+        if len(batch) + len(line) > 3500:
+            await callback.message.answer(batch)
+            batch = ""
+        batch += line + "\n"
+    if batch:
+        await callback.message.answer(batch, reply_markup=admin_kb(callback.from_user.id))
     await callback.answer()

@@ -4,7 +4,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from keyboards.inline_kb import reg_user_kb, cooperation_kb, confirm_patient_kb
 from datetime import datetime
-from db_handler.db import get_pool
+from db_handler.postgres import get_pool
 
 account_router = Router()
 
@@ -12,16 +12,6 @@ class PatientFromAgent(StatesGroup):
     full_name = State()
     phone_number = State()
     confirmation = State()
-
-# @account_router.callback_query(F.data == 'my_profile')
-# async def account_callback(callback: CallbackQuery):
-#     await callback.message.edit_reply_markup()
-#     user_data = users_data.get(callback.from_user.id)
-#     await callback.message.answer(
-#         f"Информация о вашем профиле:\n\n"
-#         f"Ваше ФИО: {user_data['full_name']}\n",
-#         reply_markup=reg_user_kb(callback.from_user.id)
-#     )
 
 @account_router.callback_query(F.data == 'cooperation')
 async def account_callback(callback: CallbackQuery):
@@ -138,7 +128,6 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
         )
 
     await callback.message.edit_text(
-        # f"Уважаемый {data['full_name']}, мы приняли ваш запрос на запись
         f"Мы приняли ваш запрос на запись {data['full_name']}",
         reply_markup=reg_user_kb(callback.from_user.id, full_name)
     )

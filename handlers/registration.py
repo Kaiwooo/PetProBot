@@ -5,13 +5,13 @@ from aiogram.fsm.state import StatesGroup, State
 from keyboards.inline_kb import reg_user_kb, confirm_reg_kb, privacy_kb, marketing_kb
 from keyboards.regular_kb import phone_kb
 from datetime import datetime
-from db_handler.db import get_pool
+from db_handler.postgres import get_pool
 from middlewares.decorators import skip_if_registered
 
 registration_router = Router()
 
 # ------------------- FSM -------------------
-class Registration(StatesGroup):
+class RegistrationAgent(StatesGroup):
     privacy = State()
     marketing = State()
     phone = State()
@@ -25,13 +25,15 @@ class Registration(StatesGroup):
 @registration_router.callback_query(F.data == 'registration')
 async def start_registration_callback(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_reply_markup()
-    await callback.answer() #убираем часики на кнопке
+    await callback.answer() # убираем часики на кнопке
+    await state.update_data(telegram_username=callback.from_user.username)
+    await state.update_data(started=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
     await callback.message.answer('Для регистрации, нам потребуются Ваши согласия')
     await callback.message.answer(
         'Я принимаю <a href="https://www.pet-net.ru/page/partnership">Соглашение об обработке Персональных Данных</a>',
         reply_markup=privacy_kb(callback.from_user.id)
     )
-    await state.set_state(Registration.privacy)
+    await state.set_state(RegistrationAgent.privacy)
 
 # ------------------- Получение согласия ПД -------------------
 @registration_router.callback_query(F.data.in_(['privacy_agreement_yes', 'privacy_agreement_no']))
@@ -44,7 +46,7 @@ async def process_privacy(callback: CallbackQuery, state: FSMContext):
             'Я принимаю <a href="https://www.pet-net.ru/page/partnership">Соглашение о получении информационных сообщений, в том числе маркетингового характера</a>',
             reply_markup=marketing_kb(callback.from_user.id)
         )
-        await state.set_state(Registration.marketing)
+        await state.set_state(RegistrationAgent.marketing)
         await callback.answer()
     else:
         await state.update_data(privacy=False)
@@ -62,23 +64,23 @@ async def process_marketing(callback: CallbackQuery, state: FSMContext):
             'Благодарим вас за принятие соглашений, а теперь укажите Ваш номер телефона',
             reply_markup=phone_kb()
         )
-        await state.set_state(Registration.phone)
+        await state.set_state(RegistrationAgent.phone)
         await callback.answer()
     else:
         await state.update_data(privacy=False)
         await callback.answer('К сожалению, регистрация без возможности отправлять Вам сообщения невозможна', show_alert=True)
         await state.clear()
 
-@registration_router.message(F.contact, Registration.phone)
+@registration_router.message(F.contact, RegistrationAgent.phone)
 async def process_phone(message: Message, state: FSMContext):
     if message.contact.user_id != message.from_user.id:
         await message.answer('Пожалуйста, поделитесь вашим собственным контактом!')
         return
     await state.update_data(phone=message.contact.phone_number)
     await message.answer('Спасибо! А теперь введи ваше ФИО:', reply_markup=ReplyKeyboardRemove())
-    await state.set_state(Registration.full_name)
+    await state.set_state(RegistrationAgent.full_name)
 
-@registration_router.message(Registration.full_name)
+@registration_router.message(RegistrationAgent.full_name)
 async def process_full_name(message: Message, state: FSMContext):
     await state.update_data(full_name=message.text)
     data = await state.get_data()
@@ -87,7 +89,7 @@ async def process_full_name(message: Message, state: FSMContext):
         await show_confirmation(message, state)
         return
     await message.answer('Укажите город, в котором Вы работаете:')
-    await state.set_state(Registration.city)
+    await state.set_state(RegistrationAgent.city)
 #     await message.answer('Введите ваш Email:')
 # #     await state.set_state(Registration.email)
 # #
@@ -110,7 +112,7 @@ async def process_full_name(message: Message, state: FSMContext):
 # # #     await message.answer('Укажите город, в котором Вы работаете:')
 # # #     await state.set_state(Registration.city)
 
-@registration_router.message(Registration.city)
+@registration_router.message(RegistrationAgent.city)
 async def process_city(message: Message, state: FSMContext):
     await state.update_data(city=message.text)
     data = await state.get_data()
@@ -119,9 +121,9 @@ async def process_city(message: Message, state: FSMContext):
         await show_confirmation(message, state)
         return
     await message.answer('Введите медицинское учреждение:')
-    await state.set_state(Registration.clinic)
+    await state.set_state(RegistrationAgent.clinic)
 
-@registration_router.message(Registration.clinic)
+@registration_router.message(RegistrationAgent.clinic)
 async def process_clinic(message: Message, state: FSMContext):
     await state.update_data(clinic=message.text)
     data = await state.get_data()
@@ -130,9 +132,9 @@ async def process_clinic(message: Message, state: FSMContext):
         await show_confirmation(message, state)
         return
     await message.answer('Введите должность / специализацию:')
-    await state.set_state(Registration.position)
+    await state.set_state(RegistrationAgent.position)
 
-@registration_router.message(Registration.position)
+@registration_router.message(RegistrationAgent.position)
 async def process_position(message: Message, state: FSMContext):
     await state.update_data(position=message.text)
     data = await state.get_data()
@@ -145,7 +147,7 @@ async def process_position(message: Message, state: FSMContext):
 # ------------------- Показываем подтверждение -------------------
 async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
     data = await state.get_data()
-    await state.set_state(Registration.confirmation)
+    await state.set_state(RegistrationAgent.confirmation)
     summary = (
         f"Пожалуйста внимательно проверьте введённые данные.\n"
         f"Вы не сможете изменить их самостоятельно без медицинского представителя:\n\n"
@@ -165,7 +167,7 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
 
 # ------------------- Обработчики кнопок "Исправить ..." -------------------
 
-@registration_router.callback_query(F.data == 'edit_full_name', Registration.confirmation)
+@registration_router.callback_query(F.data == 'edit_full_name', RegistrationAgent.confirmation)
 @skip_if_registered
 async def edit_full_name(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='full_name')
@@ -173,7 +175,7 @@ async def edit_full_name(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text("Введите корректное ФИО:", reply_markup=None)
     except Exception:   # если редактирование не удалось (например, сообщение нельзя редактировать), упадём обратно к отправке нового сообщения, но это редкий случай
         await callback.message.answer("Введите корректное ФИО:")
-    await state.set_state(Registration.full_name)
+    await state.set_state(RegistrationAgent.full_name)
     await callback.answer()
 
 # @registration_router.callback_query(F.data == 'edit_email', Registration.confirmation)
@@ -183,7 +185,7 @@ async def edit_full_name(callback: CallbackQuery, state: FSMContext):
 #     await state.set_state(Registration.email)
 #     await callback.answer()
 
-@registration_router.callback_query(F.data == 'edit_city', Registration.confirmation)
+@registration_router.callback_query(F.data == 'edit_city', RegistrationAgent.confirmation)
 @skip_if_registered
 async def edit_city(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='city')
@@ -191,10 +193,10 @@ async def edit_city(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text('Введите корректный город:', reply_markup=None)
     except Exception:
         await callback.message.answer('Введите корректный город:')
-    await state.set_state(Registration.city)
+    await state.set_state(RegistrationAgent.city)
     await callback.answer()
 
-@registration_router.callback_query(F.data == 'edit_clinic', Registration.confirmation)
+@registration_router.callback_query(F.data == 'edit_clinic', RegistrationAgent.confirmation)
 @skip_if_registered
 async def edit_clinic(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='clinic')
@@ -202,10 +204,10 @@ async def edit_clinic(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text('Введите корректное медицинское учреждение:', reply_markup=None)
     except Exception:
         await callback.message.answer('Введите корректное медицинское учреждение:')
-    await state.set_state(Registration.clinic)
+    await state.set_state(RegistrationAgent.clinic)
     await callback.answer()
 
-@registration_router.callback_query(F.data == 'edit_position', Registration.confirmation)
+@registration_router.callback_query(F.data == 'edit_position', RegistrationAgent.confirmation)
 @skip_if_registered
 async def edit_position(callback: CallbackQuery, state: FSMContext):
     await state.update_data(edit_field='position')
@@ -213,7 +215,7 @@ async def edit_position(callback: CallbackQuery, state: FSMContext):
         await callback.message.edit_text('Введите корректную должность / специализацию:', reply_markup=None)
     except Exception:
         await callback.message.answer('Введите корректную должность / специализацию:')
-    await state.set_state(Registration.position)
+    await state.set_state(RegistrationAgent.position)
     await callback.answer()
 
 # ------------------- Подтверждение регистрации -------------------
@@ -222,7 +224,7 @@ async def edit_position(callback: CallbackQuery, state: FSMContext):
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
-    username = callback.from_user.username or None  # Telegram username или None если нет
+    username = data.get("telegram_username") or None  # Telegram username или None если нет
     reg_date = datetime.now()   # Дата регистрации
     full_name = data.get('full_name', '')
     phone = data.get('phone', None)
