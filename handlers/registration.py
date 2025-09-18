@@ -17,10 +17,7 @@ class RegistrationAgent(StatesGroup):
     # marketing = State()
     phone = State()
     full_name = State()
-    # email = State()
     city = State()
-    # clinic = State()
-    # position = State()
     confirmation = State()
 
 @registration_router.callback_query(F.data == 'registration')
@@ -123,27 +120,6 @@ async def process_full_name(message: Message, state: FSMContext):
         return
     await message.answer('Укажите город, в котором Вы работаете:')
     await state.set_state(RegistrationAgent.city)
-#     await message.answer('Введите ваш Email:')
-# #     await state.set_state(Registration.email)
-# #
-# # # # ------------------- валидация email-------------------
-# # # def is_valid_email(email: str) -> bool:
-# # #     pattern = r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"
-# # #     return re.fullmatch(pattern, email) is not None
-# # #
-# # # @registration_router.message(Registration.email)
-# # # async def process_email(message: Message, state: FSMContext):
-# # #     if not is_valid_email(message.text):
-# # #         await message.answer('❌ Некорректный email!\nПример: example@mail.com')
-# # #         return
-# # #     await state.update_data(email=message.text)
-# # #     data = await state.get_data()
-# # #     if data.get('edit_field') == 'email':
-# # #         await state.update_data(edit_field=None)
-# # #         await show_confirmation(message, state)  # тут важно, чтобы функция была определена
-# # #         return
-# # #     await message.answer('Укажите город, в котором Вы работаете:')
-# # #     await state.set_state(Registration.city)
 
 @registration_router.message(RegistrationAgent.city)
 async def process_city(message: Message, state: FSMContext):
@@ -154,29 +130,6 @@ async def process_city(message: Message, state: FSMContext):
         await show_confirmation(message, state)
         return
     await show_confirmation(message, state)
-#     await message.answer('Введите медицинское учреждение:')
-#     await state.set_state(RegistrationAgent.clinic)
-#
-# @registration_router.message(RegistrationAgent.clinic)
-# async def process_clinic(message: Message, state: FSMContext):
-#     await state.update_data(clinic=message.text)
-#     data = await state.get_data()
-#     if data.get('edit_field') == 'clinic':
-#         await state.update_data(edit_field=None)
-#         await show_confirmation(message, state)
-#         return
-#     await message.answer('Введите должность / специализацию:')
-#     await state.set_state(RegistrationAgent.position)
-#
-# @registration_router.message(RegistrationAgent.position)
-# async def process_position(message: Message, state: FSMContext):
-#     await state.update_data(position=message.text)
-#     data = await state.get_data()
-#     if data.get('edit_field') == 'position':
-#         await state.update_data(edit_field=None)
-#         await show_confirmation(message, state)
-#         return
-#     await show_confirmation(message, state)
 
 # ------------------- Показываем подтверждение -------------------
 async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
@@ -189,32 +142,17 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
     first_name = fio_parts[1] if len(fio_parts) > 1 else "не указано"
     patronymic = fio_parts[2] if len(fio_parts) > 2 else "не указано"
 
-    summary_lines = [
-        f"Пожалуйста внимательно проверьте введённые данные.",
-        f"Вы не сможете изменить их самостоятельно без медицинского представителя:\n",
-        f"Телефон: {data.get('phone', 'не указано')}",
+    summary_lines = (
+        f"Пожалуйста внимательно проверьте введённые данные.\n"
+        f"Вы не сможете изменить их самостоятельно без медицинского представителя:\n\n"
+        f"Телефон: {data['phone']}\n"
         f"Фамилия: {last_name}",
         f"Имя: {first_name}",
         f"Отчество: {patronymic}",
-        f"Город: {data.get('city', 'не указано')}",
-        # f"Медицинское учреждение: {data.get('clinic', 'не указано')}",
-        # f"Должность: {data.get('position', 'не указано')}",
-    ]
-
+        f"Город: {data['city']}\n"
+    )
     summary = "\n".join(summary_lines)
 
-
-
-    # summary = (
-    #     f"Пожалуйста внимательно проверьте введённые данные.\n"
-    #     f"Вы не сможете изменить их самостоятельно без медицинского представителя:\n\n"
-    #     f"Телефон: {data['phone']}\n"
-    #     f"ФИО: {data['full_name']}\n"
-    #     # f"Email: {data['email']}\n"
-    #     f"Город: {data['city']}\n"
-    #     # f"Медицинское учреждение: {data['clinic']}\n"
-    #     # f"Должность: {data['position']}"
-    # )
     keyboard = confirm_reg_kb(obj.from_user.id)
     if isinstance(obj, CallbackQuery):
         await obj.message.edit_text(summary, reply_markup=keyboard)
@@ -223,7 +161,6 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
         await obj.answer(summary, reply_markup=keyboard)
 
 # ------------------- Обработчики кнопок "Исправить ..." -------------------
-
 @registration_router.callback_query(F.data == 'edit_full_name', RegistrationAgent.confirmation)
 @skip_if_registered
 async def edit_full_name(callback: CallbackQuery, state: FSMContext):
@@ -234,13 +171,6 @@ async def edit_full_name(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer("Введите корректное ФИО:")
     await state.set_state(RegistrationAgent.full_name)
     await callback.answer()
-
-# @registration_router.callback_query(F.data == 'edit_email', Registration.confirmation)
-# async def edit_email(callback: CallbackQuery, state: FSMContext):
-#     await state.update_data(edit_field='email')
-#     await callback.message.answer('Введите корректный Email:')
-#     await state.set_state(Registration.email)
-#     await callback.answer()
 
 @registration_router.callback_query(F.data == 'edit_city', RegistrationAgent.confirmation)
 @skip_if_registered
@@ -253,28 +183,6 @@ async def edit_city(callback: CallbackQuery, state: FSMContext):
     await state.set_state(RegistrationAgent.city)
     await callback.answer()
 
-# @registration_router.callback_query(F.data == 'edit_clinic', RegistrationAgent.confirmation)
-# @skip_if_registered
-# async def edit_clinic(callback: CallbackQuery, state: FSMContext):
-#     await state.update_data(edit_field='clinic')
-#     try:
-#         await callback.message.edit_text('Введите корректное медицинское учреждение:', reply_markup=None)
-#     except Exception:
-#         await callback.message.answer('Введите корректное медицинское учреждение:')
-#     await state.set_state(RegistrationAgent.clinic)
-#     await callback.answer()
-#
-# @registration_router.callback_query(F.data == 'edit_position', RegistrationAgent.confirmation)
-# @skip_if_registered
-# async def edit_position(callback: CallbackQuery, state: FSMContext):
-#     await state.update_data(edit_field='position')
-#     try:
-#         await callback.message.edit_text('Введите корректную должность / специализацию:', reply_markup=None)
-#     except Exception:
-#         await callback.message.answer('Введите корректную должность / специализацию:')
-#     await state.set_state(RegistrationAgent.position)
-#     await callback.answer()
-
 # ------------------- Подтверждение регистрации -------------------
 @registration_router.callback_query(F.data == 'confirm_registration')
 @skip_if_registered
@@ -286,9 +194,8 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     full_name = data.get('full_name', '')
     phone = data.get('phone', None)
     city = data.get('city', None)
-    # clinic = data.get('clinic', None)
-    # position = data.get('position', None)
     privacy = data.get('privacy', False)
+    requested_contract = data.get('requested_contract', False)
     # marketing = data.get('marketing', False)
 
     # Сохраняем в Postgres
@@ -317,16 +224,14 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
             full_name,
             phone,
             city,
-            # clinic,
-            # position,
             reg_date,
             privacy,
             # marketing
         )
 
     await callback.message.edit_text(
-        f"Уважаемый {data['full_name']}, спасибо за регистрацию!\n"
-        f"Для подтверждения регистрации с Вами свяжется медицинский представитель.",
-        reply_markup=reg_user_kb(callback.from_user.id, full_name),
+        f"Уважаемый {data['full_name']}, спасибо за регистрацию!\n",
+        reply_markup=reg_user_kb(callback.from_user.id, full_name, requested_contract),
     )
     await state.clear() # очищаем FSM
+

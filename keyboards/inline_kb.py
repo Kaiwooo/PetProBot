@@ -3,7 +3,6 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 def admin_kb(user_id: int):
     kb_list = [
-        #[InlineKeyboardButton(text='Вернуться в главное меню', callback_data='main_menu')],
         [InlineKeyboardButton(text='Посмотреть агентов', callback_data='admin_agents')],
         [InlineKeyboardButton(text='Посмотреть пациентов', callback_data='admin_customers')],
         [InlineKeyboardButton(text='Посмотреть незавершенные регистрации', callback_data='admin_incomplete_agents')],
@@ -45,13 +44,14 @@ def petnetrubot_kb(user_id: int):
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
 
-def reg_user_kb(user_id: int, full_name: str):
+def reg_user_kb(user_id: int, full_name: str, requested_contract: bool):
     kb_list = [
-        # [InlineKeyboardButton(text='👨‍⚕️ Мой профиль', callback_data='my_profile')],
         [InlineKeyboardButton(text='Скачать файлы для врачей', url='https://www.pet-net.ru/page/komu-pokazano')],
         [InlineKeyboardButton(text='Связаться с главным радиологом', url=f'https://wa.me/74950330001?text=Здравствуйте,%20меня%20зовут%20{full_name}.%20У%20меня%20вопрос')],
-        [InlineKeyboardButton(text='Сотрудничество', callback_data='cooperation')]
-    ]
+        [InlineKeyboardButton(
+            text='Направить пациента' if requested_contract else 'Сотрудничество',
+            callback_data='send_patient' if requested_contract else 'cooperation'
+        )]    ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
 
@@ -73,11 +73,17 @@ def privacy_kb(user_id: int):
 
 def confirm_reg_kb(user_id: int):
     kb_list = [ [InlineKeyboardButton(text="Исправить ФИО", callback_data="edit_full_name"),
-                # [InlineKeyboardButton(text="Исправить Email", callback_data="edit_email"),
                 InlineKeyboardButton(text="Исправить город", callback_data="edit_city")],
-                # [InlineKeyboardButton(text="Исправить медицинское учреждение", callback_data="edit_clinic"),
-                # InlineKeyboardButton(text="Исправить должность", callback_data="edit_position")],
                 [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_registration")]
+    ]
+    keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
+    return keyboard
+
+def confirm_full_info_kb(user_id: int):
+    kb_list = [ [InlineKeyboardButton(text="Исправить Email", callback_data="edit_email")],
+                [InlineKeyboardButton(text="Исправить клинику", callback_data="edit_organization")],
+                [InlineKeyboardButton(text="Исправить должность", callback_data="edit_position")],
+                [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_full_info")]
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
@@ -85,17 +91,8 @@ def confirm_reg_kb(user_id: int):
 def confirm_patient_kb(user_id: int):
     kb_list = [ [InlineKeyboardButton(text="Исправить ФИО", callback_data="edit_patient_full_name"),
                 InlineKeyboardButton(text="Исправить телефон", callback_data="edit_patient_phone_number")],
+                [InlineKeyboardButton(text="❌ Отменить", callback_data="main_menu")],
                 [InlineKeyboardButton(text="✅ Подтвердить", callback_data="confirm_patient")]
-    ]
-    keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
-    return keyboard
-
-def verified_user_kb(user_id: int):
-    kb_list = [
-        #[InlineKeyboardButton(text='👨‍⚕️ Мой профиль', callback_data='my_profile')],
-        [InlineKeyboardButton(text='Шаблоны договоров', callback_data='docs_templates')],
-        [InlineKeyboardButton(text='Скачать информацию', callback_data='download_info')],
-        [InlineKeyboardButton(text='Направить пациента', callback_data='make_request')]
     ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
@@ -104,30 +101,8 @@ def cooperation_kb(user_id: int, full_name: str):
     #full_name = users_data.get(user_id).get("full_name")
     kb_list = [
         [InlineKeyboardButton(text='Вернуться в главное меню', callback_data='main_menu')],
-        [InlineKeyboardButton(text='Заполнить договор', url='https://docs.google.com/document/d/1VQ2xMdnXdZGpRJWHajM6cZv5pif-o0qZ/edit?usp=sharing&ouid=115324883075267776916&rtpof=true&sd=true')],
-        [InlineKeyboardButton(text='Записать пациента', callback_data='make_request')],
+        [InlineKeyboardButton(text='Заполнить договор', callback_data='request_contract')],
         [InlineKeyboardButton(text='Остались вопросы', url=f'https://wa.me/74950330001?text=Здравствуйте,%20меня%20зовут%20{full_name}.%20У%20меня%20вопрос%20по%20сотрудничеству')]
         ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
-
-# def docs_kb(user_id: int):
-#     kb_list = [
-#         [InlineKeyboardButton(text='Вернуться в главное меню', callback_data='main_menu')],
-#         [InlineKeyboardButton(text='Сайт для партнеров',
-#                               url='https://www.pet-net.ru/page/partnership')],
-#         [InlineKeyboardButton(text='Карта с разбивкой по трейсерам',
-#                               url='https://www.pet-net.ru/page/komu-pokazano#imageSlider')],
-#         [InlineKeyboardButton(text='Как записаться пациенту в ПЭТ технолоджи',
-#                               url='https://drive.google.com/file/d/1IsOaaJCs9BNxDVM-XN4QcbaYy4A94yvQ/view?usp=sharing')],
-#         [InlineKeyboardButton(text='Как записать пациента на ПЭТ-КТ с глюкозой ПСМА или тирозином',
-#                               url='https://drive.google.com/file/d/1zdRg07uyQPlSm7N2kb43gilprazi2pXn/view?usp=sharing')],
-#         [InlineKeyboardButton(text='Московский кластер «ПЭТ-Технолоджи»',
-#                               url='https://drive.google.com/file/d/1nRBL5Zhx6SQmeI_y8CGDoAHXX8E-q-3F/view?usp=sharing')],
-#         [InlineKeyboardButton(text='Карта центров «ПЭТ-Технолоджи»',
-#                               url='https://drive.google.com/file/d/1dpRP3dEClATW0ENY5Dq8Hy1MT5bAYIR8/view?usp=sharing')],
-#         [InlineKeyboardButton(text='Карта «ПЭТ-Технолоджи» с трейсерами',
-#                               url='https://drive.google.com/file/d/1uvZbWGCV2bhed-7KmJKOp5DOayOGvEJN/view?usp=sharing')],
-#     ]
-#     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
-#     return keyboard

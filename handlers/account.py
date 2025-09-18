@@ -2,7 +2,7 @@ from aiogram.fsm.state import StatesGroup, State
 from aiogram.fsm.context import FSMContext
 from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
-from keyboards.inline_kb import reg_user_kb, cooperation_kb, confirm_patient_kb
+from keyboards.inline_kb import reg_user_kb, confirm_patient_kb
 from datetime import datetime
 from db_handler.postgres import get_pool
 
@@ -13,26 +13,8 @@ class PatientFromAgent(StatesGroup):
     phone_number = State()
     confirmation = State()
 
-@account_router.callback_query(F.data == 'cooperation')
-async def account_callback(callback: CallbackQuery):
-    await callback.message.edit_reply_markup()
-    await callback.answer()
-    async with get_pool().acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT full_name FROM agents WHERE telegram_id=$1",
-            callback.from_user.id
-        )
-    full_name = row["full_name"]
-    await callback.message.answer('Вы можете направлять платных пациентов за вознаграждение в размере 10% от стоимости ПЭТ/КТ (или других услуг).\n\n'
-                                  'Как происходит сотрудничество?\n'
-                                  '* Заполните договор о сотрудничестве\n'
-                                  '* Выдайте пациенту рекомендацию для проведения ПЭТ/КТ и памятку по подготовке\n'
-                                  '* Запишите пациента на услугу\n'
-                                  '* После того, как пациент пройдет ПЭТ/КТ на платной основе, выплата придет Вам в ближайший четверг после дня исследования',
-                                  reply_markup=cooperation_kb(callback.from_user.id, full_name)
-                                  )
-
-@account_router.callback_query(F.data == 'make_request')
+#--------------------------- Запись пациента -----------------------------
+@account_router.callback_query(F.data == 'send_patient')
 async def account_callback(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_reply_markup()
     await callback.message.answer('Нам потребуется ФИО вашего пациента.')
@@ -126,9 +108,24 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
             phone_number,
             created
         )
-
+        agent = await conn.fetchrow(
+            "SELECT requested_contract FROM agents WHERE telegram_id=$1",
+            agent_id
+        )
+        requested_contract = agent['requested_contract'] if agent else False
     await callback.message.edit_text(
-        f"Мы приняли ваш запрос на запись {data['full_name']}",
-        reply_markup=reg_user_kb(callback.from_user.id, full_name)
+        f"Мы приняли ваш запрос на запись {full_name}",
+        reply_markup=reg_user_kb(agent_id, full_name, requested_contract)
     )
     await state.clear() # очищаем FSM
+
+@account_router.callback_query(F.data == 'main_menu', PatientFromAgent.confirmation)
+async def cancel_patient_registration(callback: CallbackQuery, state: FSMContext):
+    # Чистим состояние
+    await state.clear()
+    # Удаляем сообщение с подтверждением (если оно ещё доступно)
+    await callback.message.edit_text(
+        f'Отменили запрос на запись',
+        reply_markup=reg_user_kb(callback.from_user.id, None, True)  # сюда твое меню
+    )
+    await callback.answer()
