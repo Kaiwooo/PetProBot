@@ -4,10 +4,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from keyboards.inline_kb import reg_user_kb, confirm_reg_kb, privacy_kb
 from keyboards.regular_kb import phone_kb
-from datetime import datetime
+from datetime import datetime, timedelta
 from db_handler.postgres import get_pool
 from middlewares.decorators import skip_if_registered
 import re
+from create_bot import bot
+from decouple import config
 
 registration_router = Router()
 
@@ -229,9 +231,17 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
             # marketing
         )
 
+    link = await bot.create_chat_invite_link(chat_id =config('CHANNEL_ID'),
+                                             name = f'telegram_id:{callback.from_user.id}',
+                                             member_limit=1,
+                                             expire_date=datetime.now() + timedelta(days=1)
+                                             )
     await callback.message.edit_text(
-        f"Уважаемый {data['full_name']}, спасибо за регистрацию!\n",
-        reply_markup=reg_user_kb(callback.from_user.id, full_name, requested_contract),
+        f"Уважаемый {data['full_name']}, спасибо за регистрацию!\n"
     )
+    await callback.message.answer(f'Приглашаем Вас в канал профессионального сообщества ПЭТ.PRO\n\n'
+                                  f'ссылка действительно в течении суток.\n'
+                                  f'{link.invite_link}',
+        reply_markup=reg_user_kb(callback.from_user.id, full_name, requested_contract))
     await state.clear() # очищаем FSM
 

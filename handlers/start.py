@@ -5,6 +5,8 @@ from aiogram.types import Message, CallbackQuery
 from keyboards.inline_kb import start_kb, medspec_kb, about_kb, petnetrubot_kb, reg_user_kb, admin_kb
 from db_handler.postgres import get_pool
 from create_bot import admins
+from create_bot import bot
+from datetime import datetime, timedelta
 
 start_router = Router()
 
@@ -34,6 +36,12 @@ async def cmd_start(message: Message):
                 f"Рады вас видеть, {full_name}! 👋",
                 reply_markup=kb
             )
+            link = await bot.create_chat_invite_link(chat_id = 1002287933841,
+                                                     name = f'invite for telegram_id:{message.from_user.id}',
+                                                     member_limit = 1,
+                                                     expire_date = datetime.now() + timedelta(hours=1)
+                                                     )
+            print(link)
         else:  # если новый пользователь
             await message.answer(
                 "Вас приветствует бот профессионального сообщества врачей PET.PRO",
