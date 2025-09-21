@@ -10,6 +10,7 @@ from middlewares.decorators import skip_if_registered
 import re
 from create_bot import bot
 from decouple import config
+from services.bitrix import create_contact_and_deal
 
 registration_router = Router()
 
@@ -93,10 +94,10 @@ async def process_full_name(message: Message, state: FSMContext):
     fio_parts = text.split()
     last_name = fio_parts[0] if len(fio_parts) > 0 else None
     first_name = fio_parts[1] if len(fio_parts) > 1 else None
-    patronymic = fio_parts[2] if len(fio_parts) > 2 else None
+    second_name = fio_parts[2] if len(fio_parts) > 2 else None
 
     # Проверка, что все части введены
-    if not last_name or not first_name or not patronymic:
+    if not last_name or not first_name or not second_name:
         await message.answer("Пожалуйста, введите полностью ФИО: фамилия, имя, отчество.")
         return
 
@@ -109,8 +110,8 @@ async def process_full_name(message: Message, state: FSMContext):
     # Нормализация: первая буква заглавная, остальные строчные
     last_name = last_name.capitalize()
     first_name = first_name.capitalize()
-    patronymic = patronymic.capitalize()
-    normalized_fio = f"{last_name} {first_name} {patronymic}"
+    second_name = second_name.capitalize()
+    normalized_fio = f"{last_name} {first_name} {second_name}"
 
     # Сохраняем
     await state.update_data(full_name=normalized_fio)
@@ -142,7 +143,7 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
     fio_parts = data.get("full_name", "").split()
     last_name = fio_parts[0] if len(fio_parts) > 0 else "не указано"
     first_name = fio_parts[1] if len(fio_parts) > 1 else "не указано"
-    patronymic = fio_parts[2] if len(fio_parts) > 2 else "не указано"
+    second_name = fio_parts[2] if len(fio_parts) > 2 else "не указано"
 
     summary_lines = (
         f"Пожалуйста внимательно проверьте введённые данные.\n"
@@ -150,7 +151,7 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
         f"Телефон: {data['phone']}\n"
         f"Фамилия: {last_name}",
         f"Имя: {first_name}",
-        f"Отчество: {patronymic}",
+        f"Отчество: {second_name}",
         f"Город: {data['city']}\n"
     )
     summary = "\n".join(summary_lines)
@@ -230,6 +231,21 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
             privacy,
             # marketing
         )
+
+        # Создаём контакт и сделку в Bitrix
+        try:
+            contact_id, deal_id = await create_contact_and_deal(
+                full_name=full_name,
+                phone=phone,
+                city=city,
+                telegram_username=username
+            )
+            if contact_id and deal_id:
+                print(f"Bitrix: контакт {contact_id} и сделка {deal_id} успешно созданы")
+            else:
+                print("Bitrix: не удалось создать контакт или сделку")
+        except Exception as e:
+            print(f"Ошибка при создании контакта/сделки в Bitrix: {e}")
 
     link = await bot.create_chat_invite_link(chat_id =config('CHANNEL_ID'),
                                              name = f'telegram_id:{callback.from_user.id}',
