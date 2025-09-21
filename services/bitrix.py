@@ -61,3 +61,31 @@ async def create_contact_and_deal(full_name: str, phone: str | None, city: str |
     if contact_id:
         deal_id = await create_deal(full_name, contact_id)
     return contact_id, deal_id
+
+# Найти контакт по телефону
+async def find_contact_by_phone(phone: str):
+    result = await _post_json("crm.contact.list", {
+        "filter": {"PHONE": phone},
+        "select": ["ID"]
+    })
+    if result:
+        return int(result[0]["ID"])
+    return None
+
+# Найти сделку по CONTACT_ID
+async def find_deal_by_contact(contact_id: int):
+    result = await _post_json("crm.deal.list", {
+        "filter": {"CONTACT_ID": contact_id},
+        "select": ["ID", "STAGE_ID"]
+    })
+    if result:
+        return int(result[0]["ID"])
+    return None
+
+# Обновить контакт
+async def update_contact(contact_id: int, fields: dict):
+    return await _post_json("crm.contact.update", {"id": contact_id, "fields": fields})
+
+# Перевести сделку на следующую стадию
+async def advance_deal_stage(deal_id: int, next_stage: str):
+    return await _post_json("crm.deal.update", {"id": deal_id, "fields": {"STAGE_ID": next_stage}})
