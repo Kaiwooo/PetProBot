@@ -5,7 +5,7 @@ from aiogram.fsm.state import StatesGroup, State
 from keyboards.inline_kb import reg_user_kb, cooperation_kb, confirm_full_info_kb
 from db_handler.postgres import get_pool
 import re
-from services.bitrix import find_contact_by_phone, find_deal_by_contact, update_contact, advance_deal_stage
+from services.bitrix import update_contact, change_deal_stage, create_company
 
 request_contract_router=Router()
 
@@ -139,7 +139,6 @@ async def confirm_full_info(callback: CallbackQuery, state: FSMContext):
     email = data.get('email')
     organization = data.get('organization')
     position = data.get('position')
-    phone = data.get('phone')
 
     async with get_pool().acquire() as conn:
         await conn.execute(
@@ -148,24 +147,21 @@ async def confirm_full_info(callback: CallbackQuery, state: FSMContext):
         )
 
         row = await conn.fetchrow(
-            "SELECT phone_number FROM agents WHERE telegram_id=$1",
+            "SELECT bitrix_contact_id, bitrix_deal_id FROM agents WHERE telegram_id=$1",
             callback.from_user.id
         )
-        phone = row["phone_number"] if row else None
-    # Находим контакт по телефону
-    contact_id = await find_contact_by_phone(phone)
+        contact_id = row["bitrix_contact_id"]
+        deal_id = row["bitrix_deal_id"]
+        company_id = await create_company(title=organization)
     if contact_id:
         # Обновляем контакт
         await update_contact(contact_id, {
             "EMAIL": [{"VALUE": email, "VALUE_TYPE": "WORK"}],
-            # "UF_CRM_ORGANIZATION": organization,  # кастомное поле в Bitrix
+            "COMPANY_ID": company_id,
             "POST": position
         })
-
-        # Находим сделку и переводим её на следующую стадию
-        deal_id = await find_deal_by_contact(contact_id)
-        if deal_id:
-            await advance_deal_stage(deal_id, "PREPARATION")  # пример стадии
+    if deal_id:
+        await change_deal_stage(deal_id, "PREPARATION")  # пример стадии
 
     await state.clear() # очищаем FSM
     await callback.message.edit_text(

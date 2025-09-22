@@ -10,7 +10,8 @@ from middlewares.decorators import skip_if_registered
 import re
 from create_bot import bot
 from decouple import config
-from services.bitrix import create_contact_and_deal
+from services.bitrix import create_contact, create_deal
+from utils.split_full_name import split_full_name
 
 registration_router = Router()
 
@@ -27,8 +28,10 @@ class RegistrationAgent(StatesGroup):
 async def start_registration_callback(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_reply_markup()
     await callback.answer() # убираем часики на кнопке
-    await state.update_data(telegram_username=callback.from_user.username)
-    await state.update_data(started=datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+    await state.update_data(
+        telegram_username=callback.from_user.username,
+        started=datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    )
     await callback.message.answer('Для регистрации, нам потребуются Ваши согласия')
     await callback.message.answer(
         'Я принимаю <a href="https://www.pet-net.ru/page/soglasie-na-obrabotku-agenty">Соглашение об обработке Персональных Данных</a>',
@@ -84,38 +87,19 @@ async def process_phone(message: Message, state: FSMContext):
 @registration_router.message(RegistrationAgent.full_name)
 async def process_full_name(message: Message, state: FSMContext):
     text = message.text.strip()
+    last_name, first_name, second_name = split_full_name(text)
 
-    # Проверка на недопустимые символы (только буквы и дефис)
-    if not re.fullmatch(r"[A-Za-zА-Яа-яЁё\- ]+", text):
-        await message.answer("ФИО может содержать только буквы и дефис. Пожалуйста, введите корректное ФИО.")
+    # Проверка: ФИО должно быть либо полностью на кириллице, либо полностью на латинице, только буквы и дефис
+    if not (re.fullmatch(r"[А-Яа-яЁё\- ]+", text) or re.fullmatch(r"[A-Za-z\- ]+", text)):
+        await message.answer("ФИО может содержать только буквы и дефис, и должно быть полностью на кириллице или полностью на латинице.")
         return
-
-    # Разбиваем ФИО
-    fio_parts = text.split()
-    last_name = fio_parts[0] if len(fio_parts) > 0 else None
-    first_name = fio_parts[1] if len(fio_parts) > 1 else None
-    second_name = fio_parts[2] if len(fio_parts) > 2 else None
-
     # Проверка, что все части введены
-    if not last_name or not first_name or not second_name:
+    if not last_name or not first_name:
         await message.answer("Пожалуйста, введите полностью ФИО: фамилия, имя, отчество.")
         return
 
-    # Проверка на использование одного алфавита (кириллица или латиница)
-    if any(re.search(r'[А-Яа-яЁё]', part) for part in fio_parts) and any(
-            re.search(r'[A-Za-z]', part) for part in fio_parts):
-        await message.answer("ФИО должно быть полностью на кириллице или полностью на латинице, без смешения.")
-        return
-
-    # Нормализация: первая буква заглавная, остальные строчные
-    last_name = last_name.capitalize()
-    first_name = first_name.capitalize()
-    second_name = second_name.capitalize()
-    normalized_fio = f"{last_name} {first_name} {second_name}"
-
-    # Сохраняем
+    normalized_fio = f"{last_name} {first_name} {second_name}".strip()
     await state.update_data(full_name=normalized_fio)
-
     data = await state.get_data()
     if data.get('edit_field') == 'full_name':
         await state.update_data(edit_field=None)
@@ -138,12 +122,7 @@ async def process_city(message: Message, state: FSMContext):
 async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
     data = await state.get_data()
     await state.set_state(RegistrationAgent.confirmation)
-
-    # Разбиваем ФИО на фамилию, имя, отчество
-    fio_parts = data.get("full_name", "").split()
-    last_name = fio_parts[0] if len(fio_parts) > 0 else "не указано"
-    first_name = fio_parts[1] if len(fio_parts) > 1 else "не указано"
-    second_name = fio_parts[2] if len(fio_parts) > 2 else "не указано"
+    last_name, first_name, second_name = split_full_name(data.get('full_name'))
 
     summary_lines = (
         f"Пожалуйста внимательно проверьте введённые данные.\n"
@@ -198,8 +177,10 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     phone = data.get('phone', None)
     city = data.get('city', None)
     privacy = data.get('privacy', False)
-    requested_contract = data.get('requested_contract', False)
     # marketing = data.get('marketing', False)
+    # Создаём контакт и сделку в Bitrix
+    contact_id = await create_contact(full_name, phone, city, username)
+    deal_id = await create_deal(full_name, contact_id)
 
     # Сохраняем в Postgres
     async with get_pool().acquire() as conn:
@@ -212,15 +193,19 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
                 phone_number,
                 city,
                 created,
-                privacy
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+                privacy,
+                bitrix_contact_id,
+                bitrix_deal_id
+            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
             ON CONFLICT (telegram_id) DO UPDATE SET
                 telegram_username = EXCLUDED.telegram_username,
                 full_name = EXCLUDED.full_name,
                 phone_number = EXCLUDED.phone_number,
                 city = EXCLUDED.city,
                 created = EXCLUDED.created,
-                privacy = EXCLUDED.privacy
+                privacy = EXCLUDED.privacy,
+                bitrix_contact_id = EXCLUDED.bitrix_contact_id,
+                bitrix_deal_id = EXCLUDED.bitrix_deal_id
             """,
             callback.from_user.id,
             username,
@@ -229,24 +214,10 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
             city,
             reg_date,
             privacy,
-            # marketing
+            # marketing,
+            contact_id,
+            deal_id
         )
-
-        # Создаём контакт и сделку в Bitrix
-        try:
-            contact_id, deal_id = await create_contact_and_deal(
-                full_name=full_name,
-                phone=phone,
-                city=city,
-                telegram_username=username
-            )
-            if contact_id and deal_id:
-                print(f"Bitrix: контакт {contact_id} и сделка {deal_id} успешно созданы")
-            else:
-                print("Bitrix: не удалось создать контакт или сделку")
-        except Exception as e:
-            print(f"Ошибка при создании контакта/сделки в Bitrix: {e}")
-
     link = await bot.create_chat_invite_link(chat_id =config('CHANNEL_ID'),
                                              name = f'telegram_id:{callback.from_user.id}',
                                              member_limit=1,
@@ -258,6 +229,7 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f'Приглашаем Вас в канал профессионального сообщества ПЭТ.PRO\n\n'
                                   f'ссылка действительно в течении суток.\n'
                                   f'{link.invite_link}',
-        reply_markup=reg_user_kb(callback.from_user.id, full_name, requested_contract))
-    await state.clear() # очищаем FSM
+        reply_markup=reg_user_kb(callback.from_user.id, full_name, False))
+    # очищаем FSM
+    await state.clear()
 
