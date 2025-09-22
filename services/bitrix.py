@@ -1,6 +1,7 @@
 import aiohttp
 import logging
 from decouple import config
+from utils.split_full_name import split_full_name
 
 logger = logging.getLogger(__name__)
 
@@ -14,15 +15,8 @@ async def _post_json(path: str, payload: dict):
                 raise RuntimeError(f"Bitrix error: {data}")
             return data.get('result')
 
-def _split_full_name(full_name: str):
-    parts = full_name.strip().split()
-    last_name = parts[0] if len(parts) >= 1 else ""
-    first_name = parts[1] if len(parts) >= 2 else ""
-    second_name = parts[2] if len(parts) >= 3 else ""
-    return first_name, last_name, second_name
-
 async def create_contact(full_name: str, phone: str | None, city: str | None, telegram_username: str | None = None) -> int | None:
-    last_name, first_name, second_name = _split_full_name(full_name)
+    last_name, first_name, second_name = split_full_name(full_name)
     fields = {
         "NAME": first_name,
         "LAST_NAME": last_name,
@@ -89,3 +83,13 @@ async def update_contact(contact_id: int, fields: dict):
 # Перевести сделку на следующую стадию
 async def advance_deal_stage(deal_id: int, next_stage: str):
     return await _post_json("crm.deal.update", {"id": deal_id, "fields": {"STAGE_ID": next_stage}})
+
+# Создать компанию в битрикс
+async def create_company(title: str, telegram_id: int | None = None, city: str | None = None):
+    fields = {"TITLE": title}
+    payload = {"fields": fields}
+    result = await _post_json("crm.company.add", payload)
+    try:
+        return int(result)
+    except Exception:
+        return None
