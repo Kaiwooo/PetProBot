@@ -5,6 +5,7 @@ from aiogram.fsm.state import StatesGroup, State
 from keyboards.inline_kb import reg_user_kb, cooperation_kb, confirm_full_info_kb
 from db_handler.postgres import get_pool
 import re
+from services.bitrix import update_contact, change_deal_stage, create_company
 
 request_contract_router=Router()
 
@@ -144,6 +145,24 @@ async def confirm_full_info(callback: CallbackQuery, state: FSMContext):
             "UPDATE agents SET email=$1, organization=$2, position=$3, requested_contract=TRUE WHERE telegram_id=$4",
             email, organization, position, callback.from_user.id
         )
+
+        row = await conn.fetchrow(
+            "SELECT bitrix_contact_id, bitrix_deal_id FROM agents WHERE telegram_id=$1",
+            callback.from_user.id
+        )
+        contact_id = row["bitrix_contact_id"]
+        deal_id = row["bitrix_deal_id"]
+        company_id = await create_company(title=organization)
+    if contact_id:
+        # Обновляем контакт
+        await update_contact(contact_id, {
+            "EMAIL": [{"VALUE": email, "VALUE_TYPE": "WORK"}],
+            "COMPANY_ID": company_id,
+            "POST": position
+        })
+    if deal_id:
+        await change_deal_stage(deal_id, "PREPARATION")  # пример стадии
+
     await state.clear() # очищаем FSM
     await callback.message.edit_text(
         f'Пожалуйста ознакомьтесь с <a href="https://www.pet-net.ru/storage/app/media/sotrudnichestvo/%D0%90%D0%B3%D0%B5%D0%BD%D1%82%D1%81%D0%BA%D0%B8%D0%B9%20%D0%B4%D0%BE%D0%B3%D0%BE%D0%B2%D0%BE%D1%80%20%D1%81%20%D1%84%D0%B8%D0%B7.%D0%BB%D0%B8%D1%86%D0%BE%D0%BC.docx">Договором</a>.\n'

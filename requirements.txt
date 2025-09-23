@@ -4,3 +4,4 @@ APScheduler
 python-decouple
 asyncio
 redis
+aiohttp
