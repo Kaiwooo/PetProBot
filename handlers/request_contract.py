@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from keyboards.inline_kb import reg_user_kb, cooperation_kb, confirm_full_info_kb
-from db_handler.postgres import get_pool
+from db_handler.postgres import db
 import re
 from services.bitrix import update_contact, change_deal_stage, create_company
 
@@ -20,8 +20,7 @@ class FullAgentInfo(StatesGroup):
 async def account_callback(callback: CallbackQuery):
     await callback.message.edit_reply_markup()
     await callback.answer()
-    async with get_pool().acquire() as conn:
-        row = await conn.fetchrow(
+    row = await db.fetchrow(
             "SELECT full_name FROM agents WHERE telegram_id=$1",
             callback.from_user.id
         )
@@ -139,20 +138,17 @@ async def confirm_full_info(callback: CallbackQuery, state: FSMContext):
     email = data.get('email')
     organization = data.get('organization')
     position = data.get('position')
-
-    async with get_pool().acquire() as conn:
-        await conn.execute(
+    await db.execute(
             "UPDATE agents SET email=$1, organization=$2, position=$3, requested_contract=TRUE WHERE telegram_id=$4",
             email, organization, position, callback.from_user.id
         )
-
-        row = await conn.fetchrow(
+    row = await db.fetchrow(
             "SELECT bitrix_contact_id, bitrix_deal_id FROM agents WHERE telegram_id=$1",
             callback.from_user.id
         )
-        contact_id = row["bitrix_contact_id"]
-        deal_id = row["bitrix_deal_id"]
-        company_id = await create_company(title=organization)
+    contact_id = row["bitrix_contact_id"]
+    deal_id = row["bitrix_deal_id"]
+    company_id = await create_company(title=organization)
     if contact_id:
         # Обновляем контакт
         await update_contact(contact_id, {

@@ -5,7 +5,7 @@ from aiogram.fsm.state import StatesGroup, State
 from keyboards.inline_kb import reg_user_kb, confirm_reg_kb, privacy_kb
 from keyboards.regular_kb import phone_kb
 from datetime import datetime, timedelta
-from db_handler.postgres import get_pool
+from db_handler.postgres import db
 from middlewares.decorators import skip_if_registered
 import re
 from create_bot import bot
@@ -183,8 +183,7 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     deal_id = await create_deal(full_name, contact_id)
 
     # Сохраняем в Postgres
-    async with get_pool().acquire() as conn:
-        await conn.execute(
+    await db.execute(
             """
             INSERT INTO agents(
                 telegram_id,

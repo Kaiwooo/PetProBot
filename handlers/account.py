@@ -4,7 +4,7 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from keyboards.inline_kb import reg_user_kb, confirm_patient_kb
 from datetime import datetime
-from db_handler.postgres import get_pool
+from db_handler.postgres import db
 
 account_router = Router()
 
@@ -93,8 +93,7 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     created = datetime.now()
 
     # Сохраняем в Postgres
-    async with get_pool().acquire() as conn:
-        await conn.execute(
+    await db.execute(
             """
             INSERT INTO customers(
                 agent_id,
@@ -108,11 +107,8 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
             phone_number,
             created
         )
-        agent = await conn.fetchrow(
-            "SELECT requested_contract FROM agents WHERE telegram_id=$1",
-            agent_id
-        )
-        requested_contract = agent['requested_contract'] if agent else False
+    agent = await db.fetchrow("SELECT requested_contract FROM agents WHERE telegram_id=$1", agent_id)
+    requested_contract = agent['requested_contract'] if agent else False
     await callback.message.edit_text(
         f"Мы приняли ваш запрос на запись {full_name}",
         reply_markup=reg_user_kb(agent_id, full_name, requested_contract)

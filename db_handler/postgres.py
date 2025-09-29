@@ -1,82 +1,88 @@
 import asyncpg
 from asyncpg.pool import Pool
 from decouple import config
+from typing import Optional
 
-db_pool: asyncpg.Pool | None = None
 
-async def init_db():
-    """Инициализация пула соединений с PostgreSQL"""
-    global db_pool
-    db_pool = await asyncpg.create_pool(
-        dsn=config("PG_LINK"),
-        min_size=1,
-        max_size=10
-    )
+class Database:
+    def __init__(self, dsn: str):
+        self.dsn = dsn
+        self.pool: Optional[Pool] = None
 
-def get_pool() -> Pool:
-    if db_pool is None:
-        raise RuntimeError("DB pool is not initialized")
-    return db_pool
-
-async def close_db():
-    """Закрыть пул соединений"""
-    global db_pool
-    if db_pool:
-        await db_pool.close()
-
-async def is_user_registered(telegram_id: int) -> bool:
-    """Проверка, есть ли пользователь в таблице agents"""
-    async with get_pool().acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT telegram_id FROM agents WHERE telegram_id=$1", telegram_id
+    async def connect(self, min_size=1, max_size=10):
+        """Инициализация пула соединений"""
+        self.pool = await asyncpg.create_pool(
+            dsn=self.dsn,
+            min_size=min_size,
+            max_size=max_size
         )
-    return row is not None
+
+    async def close(self):
+        """Закрыть пул соединений"""
+        if self.pool:
+            await self.pool.close()
+
+    async def fetchrow(self, query: str, *args):
+        async with self.pool.acquire() as conn:
+            return await conn.fetchrow(query, *args)
+
+    async def fetch(self, query: str, *args):
+        async with self.pool.acquire() as conn:
+            return await conn.fetch(query, *args)
+
+    async def execute(self, query: str, *args):
+        async with self.pool.acquire() as conn:
+            return await conn.execute(query, *args)
+
+# Инициализируем глобальный объект базы
+db = Database(config("PG_LINK"))
 
 # ------------------ AGENTS ------------------
+async def is_user_registered(telegram_id: int) -> bool:
+    """Проверка, есть ли пользователь в таблице agents"""
+    row = await db.fetchrow(
+        "SELECT telegram_id FROM agents WHERE telegram_id=$1",
+        telegram_id
+    )
+    return row is not None
 
 async def add_agent(telegram_id: int, username: str | None, full_name: str,
                     phone_number: str, city: str | None, organization: str | None,
                     position: str | None, privacy: bool, marketing: bool):
     """Добавить или обновить агента"""
-    async with db_pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO agents (
-                telegram_id, telegram_username, full_name,
-                phone_number, city, organization, position,
-                created, privacy, marketing
-            )
-            VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8,$9)
-            ON CONFLICT (telegram_id) DO UPDATE SET
-                telegram_username = EXCLUDED.telegram_username,
-                full_name = EXCLUDED.full_name,
-                phone_number = EXCLUDED.phone_number,
-                city = EXCLUDED.city,
-                organization = EXCLUDED.organization,
-                position = EXCLUDED.position,
-                privacy = EXCLUDED.privacy,
-                marketing = EXCLUDED.marketing
-        """, telegram_id, username, full_name, phone_number, city, organization, position, privacy, marketing)
+    await db.execute("""
+        INSERT INTO agents (
+            telegram_id, telegram_username, full_name,
+            phone_number, city, organization, position,
+            created, privacy, marketing
+        )
+        VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8,$9)
+        ON CONFLICT (telegram_id) DO UPDATE SET
+            telegram_username = EXCLUDED.telegram_username,
+            full_name = EXCLUDED.full_name,
+            phone_number = EXCLUDED.phone_number,
+            city = EXCLUDED.city,
+            organization = EXCLUDED.organization,
+            position = EXCLUDED.position,
+            privacy = EXCLUDED.privacy,
+            marketing = EXCLUDED.marketing
+    """, telegram_id, username, full_name, phone_number,
+         city, organization, position, privacy, marketing)
 
 async def get_agents():
     """Получить всех агентов"""
-    async with db_pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM agents ORDER BY created DESC")
-        return rows
+    return await db.fetch("SELECT * FROM agents ORDER BY created DESC")
 
 # ------------------ CUSTOMERS ------------------
-
 async def add_customer(agent_id: int, full_name: str, phone_number: str, center: str | None):
     """Добавить пациента (customer)"""
-    async with db_pool.acquire() as conn:
-        await conn.execute("""
-            INSERT INTO customers (
-                agent_id, full_name, phone_number, center, created
-            )
-            VALUES ($1,$2,$3,$4,NOW())
-        """, agent_id, full_name, phone_number, center)
+    await db.execute("""
+        INSERT INTO customers (
+            agent_id, full_name, phone_number, center, created
+        )
+        VALUES ($1,$2,$3,$4,NOW())
+    """, agent_id, full_name, phone_number, center)
 
 async def get_customers():
     """Получить всех пациентов"""
-    async with db_pool.acquire() as conn:
-        rows = await conn.fetch("SELECT * FROM customers ORDER BY created DESC")
-        return rows
+    return await db.fetch("SELECT * FROM customers ORDER BY created DESC")
