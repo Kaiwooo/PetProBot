@@ -43,7 +43,7 @@ async def cmd_main_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_reply_markup()
     await callback.answer()
-    if callback.from_user.id in admins: #если админ
+    if callback.from_user.id in admins: # если админ
         await callback.message.answer(
             'Пожалуйста выберите нужный пункт в меню',
             reply_markup=admin_kb(callback.from_user.id)

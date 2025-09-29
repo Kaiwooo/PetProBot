@@ -4,8 +4,10 @@ from aiogram import Router, F
 from aiogram.types import Message, CallbackQuery
 from keyboards.inline_kb import reg_user_kb, confirm_patient_kb
 from datetime import datetime
-from db_handler.postgres import db
+from db_handler.postgres import db, add_customer
 from services.bitrix import create_deal_patient
+from utils.split_full_name import split_full_name
+import re
 
 account_router = Router()
 
@@ -24,7 +26,20 @@ async def account_callback(callback: CallbackQuery, state: FSMContext):
 
 @account_router.message(PatientFromAgent.full_name)
 async def patient_full_name(message: Message, state: FSMContext):
-    await state.update_data(full_name=message.text)
+    text = message.text.strip()
+    last_name, first_name, second_name = split_full_name(text)
+    # Проверка: ФИО должно быть либо полностью на кириллице, либо полностью на латинице, только буквы и дефис
+    if not (re.fullmatch(r"[А-Яа-яЁё\- ]+", text) or re.fullmatch(r"[A-Za-z\- ]+", text)):
+        await message.answer("ФИО может содержать только буквы и дефис, и должно быть полностью на кириллице или полностью на латинице.")
+        return
+    # Проверка, что все части введены
+    if not last_name or not first_name:
+        await message.answer("Пожалуйста, введите ФИО: минимум фамилия и имя.")
+        return
+
+    normalized_fio = f"{last_name} {first_name} {second_name}".strip()
+    await state.update_data(full_name=normalized_fio)
+
     data = await state.get_data()
     if data.get('edit_field') == 'full_name':
         await state.update_data(edit_field=None)
@@ -35,7 +50,16 @@ async def patient_full_name(message: Message, state: FSMContext):
 
 @account_router.message(PatientFromAgent.phone_number)
 async def patient_full_name(message: Message, state: FSMContext):
-    await state.update_data(phone_number=message.text)
+    phone = message.text.strip()
+    # Проверка: + и 10–15 цифр
+    phone_pattern = re.compile(r"^\+\d{10,15}$")
+    if not phone_pattern.match(phone):
+        await message.answer(
+            "❌ Неверный формат номера телефона.\n"
+            "Введите номер в международном формате (от 10 до 15 цифр), например: +71234567890"
+        )
+        return
+    await state.update_data(phone_number=phone)
     data = await state.get_data()
     if data.get('edit_field') == 'phone_number':
         await state.update_data(edit_field=None)
@@ -48,11 +72,14 @@ async def patient_full_name(message: Message, state: FSMContext):
 async def confirmation(obj: Message | CallbackQuery, state: FSMContext):
     data = await state.get_data()
     await state.set_state(PatientFromAgent.confirmation)
-    summary = (
+    last_name, first_name, second_name = split_full_name(data.get('full_name'))
+    summary = "\n".join([
         f"Проверьте введённые данные:\n\n"
-        f"ФИО: {data['full_name']}\n"
+        f"Фамилия: {last_name}",
+        f"Имя: {first_name}",
+        f"Отчество: {second_name}",
         f"Телефон: {data['phone_number']}\n"
-    )
+    ])
     keyboard = confirm_patient_kb(obj.from_user.id)
     if isinstance(obj, CallbackQuery):
         await obj.message.edit_text(summary, reply_markup=keyboard)
@@ -85,7 +112,7 @@ async def edit_full_name(callback: CallbackQuery, state: FSMContext):
 #----------------------- Подтверждение записи ------------------------
 
 @account_router.callback_query(F.data == 'confirm_patient')
-async def confirm_registration(callback: CallbackQuery, state: FSMContext):
+async def confirm_request(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
     agent_id = callback.from_user.id
@@ -95,24 +122,13 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     contact_id = await db.fetchval("SELECT bitrix_contact_id FROM agents WHERE telegram_id = $1", agent_id)
     deal_id = await create_deal_patient(full_name, phone_number, contact_id)
 
-    # Сохраняем в Postgres
-    await db.execute(
-            """
-            INSERT INTO customers(
-                agent_id,
-                full_name,
-                phone_number,
-                created,
-                bitrix_deal_id
-            ) VALUES ($1,$2,$3,$4,$5)
-            """,
-            agent_id,
-            full_name,
-            phone_number,
-            created,
-            deal_id
-        )
-
+    await add_customer(
+        agent_id=agent_id,
+        full_name=full_name,
+        phone_number=phone_number,
+        created=created,
+        deal_id=deal_id
+    )
     requested_contract = await db.fetchval(
         "SELECT requested_contract FROM agents WHERE telegram_id=$1",
         agent_id
@@ -124,12 +140,11 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     await state.clear() # очищаем FSM
 
 @account_router.callback_query(F.data == 'main_menu', PatientFromAgent.confirmation)
-async def cancel_patient_registration(callback: CallbackQuery, state: FSMContext):
-    # Чистим состояние
+async def cancel_request(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     # Удаляем сообщение с подтверждением (если оно ещё доступно)
     await callback.message.edit_text(
         f'Отменили запрос на запись',
-        reply_markup=reg_user_kb(callback.from_user.id, None, True)  # сюда твое меню
+        reply_markup=reg_user_kb(callback.from_user.id, True, None)  # сюда твое меню
     )
     await callback.answer()

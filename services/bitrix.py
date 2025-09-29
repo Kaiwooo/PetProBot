@@ -24,7 +24,7 @@ class BitrixClient:
                 raise RuntimeError(f"Bitrix API error {resp.status}: {data.get('error_description', data)}")
             return data.get("result")
 
-async def create_contact(full_name: str, phone: str | None, city: str | None, telegram_username: str | None = None):
+async def create_contact(full_name: str, phone: str, city: str, telegram_username: str | None = None):
     last_name, first_name, second_name = split_full_name(full_name)
     payload = {
         "fields": {
@@ -32,19 +32,24 @@ async def create_contact(full_name: str, phone: str | None, city: str | None, te
             "LAST_NAME": last_name,
             "SECOND_NAME": second_name,
             "TYPE_ID": "PARTNER",
-            "SOURCE_ID": "1|TELEGRAM",
+            "SOURCE_ID": 1,
             "PHONE": [{"VALUE": phone, "VALUE_TYPE": "MOBILE"}] if phone else [],
             "ADDRESS_CITY": city,
-            "IM": [{"VALUE": telegram_username, "VALUE_TYPE": "TELEGRAM"}] if telegram_username else []
+            "IM": [{"VALUE": telegram_username, "VALUE_TYPE": "TELEGRAM"}] if telegram_username else [],
         }
     }
     async with BitrixClient() as bitrix:
         return await bitrix.post("crm.contact.add", payload)
 
-async def update_contact(contact_id: int, fields: dict):
-    if not contact_id or not fields:
-        return None
-    payload = {"id": contact_id, "fields": fields}
+async def update_contact(contact_id: int, email: str, position: str, company_id: int):
+    payload = {
+        "ID": contact_id,
+        "fields": {
+            "EMAIL": [{"VALUE": email, "VALUE_TYPE": "WORK"}],
+            "COMPANY_ID": company_id,
+            "POST": position
+        }
+    }
     async with BitrixClient() as bitrix:
         return await bitrix.post("crm.contact.update", payload)
 
@@ -79,7 +84,6 @@ async def create_deal_patient(full_name: str, phone_number: str, contact_id: int
     }
     async with BitrixClient() as bitrix:
         return await bitrix.post("crm.deal.add", payload)
-
 
 async def change_deal_stage(deal_id: int, next_stage: str):
     if not deal_id or not next_stage:

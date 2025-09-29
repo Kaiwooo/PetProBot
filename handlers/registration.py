@@ -5,7 +5,7 @@ from aiogram.fsm.state import StatesGroup, State
 from keyboards.inline_kb import reg_user_kb, confirm_reg_kb, privacy_kb
 from keyboards.regular_kb import phone_kb
 from datetime import datetime, timedelta
-from db_handler.postgres import db
+from db_handler.postgres import add_agent
 from middlewares.decorators import skip_if_registered
 import re
 from create_bot import bot
@@ -124,7 +124,7 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
     await state.set_state(RegistrationAgent.confirmation)
     last_name, first_name, second_name = split_full_name(data.get('full_name'))
 
-    summary_lines = (
+    summary = "\n".join([
         f"Пожалуйста внимательно проверьте введённые данные.\n"
         f"Вы не сможете изменить их самостоятельно без медицинского представителя:\n\n"
         f"Телефон: {data['phone']}\n"
@@ -132,9 +132,7 @@ async def show_confirmation(obj: Message | CallbackQuery, state: FSMContext):
         f"Имя: {first_name}",
         f"Отчество: {second_name}",
         f"Город: {data['city']}\n"
-    )
-    summary = "\n".join(summary_lines)
-
+    ])
     keyboard = confirm_reg_kb(obj.from_user.id)
     if isinstance(obj, CallbackQuery):
         await obj.message.edit_text(summary, reply_markup=keyboard)
@@ -170,12 +168,11 @@ async def edit_city(callback: CallbackQuery, state: FSMContext):
 @skip_if_registered
 async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
-
     username = data.get("telegram_username") or None  # Telegram username или None если нет
     reg_date = datetime.now()   # Дата регистрации
-    full_name = data.get('full_name', '')
-    phone = data.get('phone', None)
-    city = data.get('city', None)
+    full_name = data.get('full_name')
+    phone = data.get('phone')
+    city = data.get('city')
     privacy = data.get('privacy', False)
     # marketing = data.get('marketing', False)
     # Создаём контакт и сделку в Bitrix
@@ -183,40 +180,17 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     deal_id = await create_deal_agents(full_name, contact_id)
 
     # Сохраняем в Postgres
-    await db.execute(
-            """
-            INSERT INTO agents(
-                telegram_id,
-                telegram_username,
-                full_name,
-                phone_number,
-                city,
-                created,
-                privacy,
-                bitrix_contact_id,
-                bitrix_deal_id
-            ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
-            ON CONFLICT (telegram_id) DO UPDATE SET
-                telegram_username = EXCLUDED.telegram_username,
-                full_name = EXCLUDED.full_name,
-                phone_number = EXCLUDED.phone_number,
-                city = EXCLUDED.city,
-                created = EXCLUDED.created,
-                privacy = EXCLUDED.privacy,
-                bitrix_contact_id = EXCLUDED.bitrix_contact_id,
-                bitrix_deal_id = EXCLUDED.bitrix_deal_id
-            """,
-            callback.from_user.id,
-            username,
-            full_name,
-            phone,
-            city,
-            reg_date,
-            privacy,
-            # marketing,
-            contact_id,
-            deal_id
-        )
+    await add_agent(
+        telegram_id=callback.from_user.id,
+        username=username,
+        full_name=full_name,
+        phone_number=phone,
+        city=city,
+        created=reg_date,
+        privacy=privacy,
+        bitrix_contact_id=contact_id,
+        bitrix_deal_id=deal_id
+    )
     link = await bot.create_chat_invite_link(chat_id =config('CHANNEL_ID'),
                                              name = f'telegram_id:{callback.from_user.id}',
                                              member_limit=1,
@@ -228,7 +202,7 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     await callback.message.answer(f'Приглашаем Вас в канал профессионального сообщества ПЭТ.PRO\n\n'
                                   f'ссылка действительно в течении суток.\n'
                                   f'{link.invite_link}',
-        reply_markup=reg_user_kb(callback.from_user.id, full_name, False))
+        reply_markup=reg_user_kb(callback.from_user.id, False, full_name))
     # очищаем FSM
     await state.clear()
 
