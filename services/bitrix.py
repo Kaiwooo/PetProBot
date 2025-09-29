@@ -2,6 +2,9 @@ import aiohttp
 from decouple import config
 from utils.split_full_name import split_full_name
 
+CATEGORY_ID_AGENTS = config("CATEGORY_ID_AGENTS", cast=int)
+CATEGORY_ID_PATIENTS = config("CATEGORY_ID_PATIENTS", cast=int)
+
 class BitrixClient:
     def __init__(self, base_url: str | None = None, timeout: int = 15):
         self.base_url = base_url or config("BITRIX_WEBHOOK_URL")
@@ -63,7 +66,7 @@ async def create_company(title: str):
 async def create_deal_agents(full_name: str, contact_id: int) -> int | None:
     payload = {
         "fields": {
-            "CATEGORY_ID": 0,
+            "CATEGORY_ID": CATEGORY_ID_AGENTS,
             "TITLE": f"Регистрация {full_name}",
             "STAGE_ID": "NEW",
             "CONTACT_ID": contact_id,
@@ -76,7 +79,7 @@ async def create_deal_agents(full_name: str, contact_id: int) -> int | None:
 async def create_deal_patient(full_name: str, phone_number: str, contact_id: int) -> int:
     payload = {
         "fields": {
-            "CATEGORY_ID": 1,
+            "CATEGORY_ID": CATEGORY_ID_PATIENTS,
             "TITLE": f"{full_name} {phone_number}",
             "CONTACT_ID": contact_id,
             "SOURCE_ID": 1
