@@ -2,7 +2,7 @@ from aiogram import Router, F
 from aiogram.types import CallbackQuery
 from middlewares.redis_registrations import FSMStateInspector
 from keyboards.inline_kb import admin_kb
-from db_handler.postgres import get_pool
+from db_handler.postgres import db
 import redis.asyncio
 from decouple import config
 
@@ -19,8 +19,7 @@ async def admin_agents(callback: CallbackQuery):
     await callback.message.edit_reply_markup()  # убираем кнопки
 
     # Получаем всех агентов
-    async with get_pool().acquire() as conn:
-        rows = await conn.fetch("""
+    rows = await db.fetch("""
             SELECT *
             FROM agents
             ORDER BY created DESC
@@ -58,8 +57,7 @@ async def admin_customers(callback: CallbackQuery):
     await callback.message.edit_reply_markup()  # убираем кнопки
 
     # Получаем всех пациентов вместе с информацией о врачах
-    async with get_pool().acquire() as conn:
-        rows = await conn.fetch("""
+    rows = await db.fetch("""
             SELECT 
                 c.full_name AS patient_name,
                 c.phone_number AS patient_phone,

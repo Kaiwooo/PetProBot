@@ -3,7 +3,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import StatesGroup, State
 from keyboards.inline_kb import reg_user_kb, cooperation_kb, confirm_full_info_kb
-from db_handler.postgres import get_pool
+from db_handler.postgres import update_agent
 import re
 from services.bitrix import update_contact, change_deal_stage, create_company
 
@@ -20,19 +20,13 @@ class FullAgentInfo(StatesGroup):
 async def account_callback(callback: CallbackQuery):
     await callback.message.edit_reply_markup()
     await callback.answer()
-    async with get_pool().acquire() as conn:
-        row = await conn.fetchrow(
-            "SELECT full_name FROM agents WHERE telegram_id=$1",
-            callback.from_user.id
-        )
-    full_name = row["full_name"]
     await callback.message.answer('Вы можете направлять платных пациентов за вознаграждение в размере 10% от стоимости ПЭТ/КТ (или других услуг).\n\n'
                                   'Как происходит сотрудничество?\n'
                                   '* Заполните договор о сотрудничестве\n'
                                   '* Выдайте пациенту рекомендацию для проведения ПЭТ/КТ и памятку по подготовке\n'
                                   '* Запишите пациента на услугу\n'
                                   '* После того, как пациент пройдет ПЭТ/КТ на платной основе, выплата придет Вам в ближайший четверг после дня исследования',
-                                  reply_markup=cooperation_kb(callback.from_user.id, full_name)
+                                  reply_markup=cooperation_kb(callback.from_user.id)
                                   )
 
 @request_contract_router.callback_query(F.data == 'request_contract')
@@ -139,27 +133,14 @@ async def confirm_full_info(callback: CallbackQuery, state: FSMContext):
     email = data.get('email')
     organization = data.get('organization')
     position = data.get('position')
-
-    async with get_pool().acquire() as conn:
-        await conn.execute(
-            "UPDATE agents SET email=$1, organization=$2, position=$3, requested_contract=TRUE WHERE telegram_id=$4",
-            email, organization, position, callback.from_user.id
-        )
-
-        row = await conn.fetchrow(
-            "SELECT bitrix_contact_id, bitrix_deal_id FROM agents WHERE telegram_id=$1",
-            callback.from_user.id
-        )
-        contact_id = row["bitrix_contact_id"]
-        deal_id = row["bitrix_deal_id"]
-        company_id = await create_company(title=organization)
+    # Обновляем данные агента в БД и сразу получаем ID контакта и сделки в Bitrix
+    row = await update_agent(email, organization, position, callback.from_user.id)
+    contact_id, deal_id = row["bitrix_contact_id"], row["bitrix_deal_id"]
+    # Создаем компанию в Bitrix
+    company_id = await create_company(title=organization)
     if contact_id:
         # Обновляем контакт
-        await update_contact(contact_id, {
-            "EMAIL": [{"VALUE": email, "VALUE_TYPE": "WORK"}],
-            "COMPANY_ID": company_id,
-            "POST": position
-        })
+        await update_contact(contact_id, email, position, company_id)
     if deal_id:
         await change_deal_stage(deal_id, "PREPARATION")  # пример стадии
 
@@ -167,6 +148,5 @@ async def confirm_full_info(callback: CallbackQuery, state: FSMContext):
     await callback.message.edit_text(
         f'Пожалуйста ознакомьтесь с <a href="https://www.pet-net.ru/storage/app/media/sotrudnichestvo/%D0%90%D0%B3%D0%B5%D0%BD%D1%82%D1%81%D0%BA%D0%B8%D0%B9%20%D0%B4%D0%BE%D0%B3%D0%BE%D0%B2%D0%BE%D1%80%20%D1%81%20%D1%84%D0%B8%D0%B7.%D0%BB%D0%B8%D1%86%D0%BE%D0%BC.docx">Договором</a>.\n'
         f'Медицинский представитель свяжется с вами чтобы запросить реквизиты для подписания',
-        reply_markup=reg_user_kb(callback.from_user.id, full_name=None, requested_contract=True)
+        reply_markup=reg_user_kb(callback.from_user.id, True, None  )
     )
-        # reply_markup=reg_user_kb(callback.from_user.id, full_name))  # сообщение после подтверждения

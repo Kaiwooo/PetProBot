@@ -44,7 +44,7 @@ def petnetrubot_kb(user_id: int):
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
 
-def reg_user_kb(user_id: int, full_name: str, requested_contract: bool):
+def reg_user_kb(user_id: int, requested_contract: bool, full_name: str | None = None):
     kb_list = [
         [InlineKeyboardButton(text='Скачать файлы для врачей', url='https://www.pet-net.ru/page/komu-pokazano')],
         [InlineKeyboardButton(text='Связаться с главным радиологом', url=f'https://wa.me/74950330001?text=Здравствуйте,%20меня%20зовут%20{full_name}.%20У%20меня%20вопрос')],
@@ -97,12 +97,12 @@ def confirm_patient_kb(user_id: int):
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard
 
-def cooperation_kb(user_id: int, full_name: str):
+def cooperation_kb(user_id: int):
     #full_name = users_data.get(user_id).get("full_name")
     kb_list = [
         [InlineKeyboardButton(text='Вернуться в главное меню', callback_data='main_menu')],
         [InlineKeyboardButton(text='Заполнить договор', callback_data='request_contract')],
-        [InlineKeyboardButton(text='Остались вопросы', url=f'https://wa.me/74950330001?text=Здравствуйте,%20меня%20зовут%20{full_name}.%20У%20меня%20вопрос%20по%20сотрудничеству')]
+        [InlineKeyboardButton(text='Остались вопросы', url=f'https://wa.me/74950330001?text=Здравствуйте,%20у%20меня%20вопрос%20по%20сотрудничеству')]
         ]
     keyboard = InlineKeyboardMarkup(inline_keyboard=kb_list)
     return keyboard

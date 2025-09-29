@@ -8,7 +8,7 @@ def main_kb(user_id: int):
     ]
     if user_id in admins:
         kb_list.append([KeyboardButton(text="⚙️ Админ панель")])
-    keyboard = ReplyKeyboardMarkup(keyboard=kb_list, resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Надо чтото выбрать:")
+    keyboard = ReplyKeyboardMarkup(keyboard=kb_list, resize_keyboard=True, one_time_keyboard=True, input_field_placeholder="Надо что-то выбрать:")
     return keyboard
 
 def phone_kb():

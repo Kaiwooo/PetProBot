@@ -6,13 +6,15 @@ from handlers.account import account_router
 from handlers.admin import admin_router
 from handlers.registration import registration_router
 from handlers.request_contract import request_contract_router
+from handlers.send_message import send_message_router
 from handlers.start import start_router
-from db_handler.postgres import init_db, close_db
+from db_handler.postgres import db
 # from work_time.time_func import send_time_msg
 
 async def main():
-    await init_db()
+    await db.connect()
     # регистрация роутеров
+    dp.include_router(send_message_router)
     dp.include_router(account_router)
     dp.include_router(start_router)
     dp.include_router(admin_router)
@@ -24,7 +26,7 @@ async def main():
         await dp.start_polling(bot, allowed_updates=dp.resolve_used_update_types())
     finally:
         await bot.session.close()
-        await close_db()
+        await db.close()
 
 if __name__ == "__main__":
     try:
