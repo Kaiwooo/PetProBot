@@ -41,18 +41,6 @@ async def create_contact(full_name: str, phone: str | None, city: str | None, te
     async with BitrixClient() as bitrix:
         return await bitrix.post("crm.contact.add", payload)
 
-async def create_deal(full_name: str, contact_id: int) -> int | None:
-    payload = {
-        "fields": {
-            "TITLE": f"Регистрация через Pet Pro Bot {full_name}",
-            "STAGE_ID": "NEW",
-            "CATEGORY_ID": 0,
-            "CONTACT_ID": contact_id,
-        }
-    }
-    async with BitrixClient() as bitrix:
-        return await bitrix.post("crm.deal.add", payload)
-
 async def update_contact(contact_id: int, fields: dict):
     if not contact_id or not fields:
         return None
@@ -60,16 +48,42 @@ async def update_contact(contact_id: int, fields: dict):
     async with BitrixClient() as bitrix:
         return await bitrix.post("crm.contact.update", payload)
 
-async def change_deal_stage(deal_id: int, next_stage: str):
-    if not deal_id or not next_stage:
-        return None
-    payload = {"id": deal_id, "fields": {"STAGE_ID": next_stage}}
-    async with BitrixClient() as bitrix:
-        return await bitrix.post("crm.deal.update", payload)
-
 async def create_company(title: str):
     payload = {"fields":
                    {"TITLE": title}
                }
     async with BitrixClient() as bitrix:
         return await bitrix.post("crm.company.add", payload)
+
+async def create_deal_agents(full_name: str, contact_id: int) -> int | None:
+    payload = {
+        "fields": {
+            "CATEGORY_ID": 0,
+            "TITLE": f"Регистрация {full_name}",
+            "STAGE_ID": "NEW",
+            "CONTACT_ID": contact_id,
+            "SOURCE_ID": 1
+        }
+    }
+    async with BitrixClient() as bitrix:
+        return await bitrix.post("crm.deal.add", payload)
+
+async def create_deal_patient(full_name: str, phone_number: str, contact_id: int) -> int:
+    payload = {
+        "fields": {
+            "CATEGORY_ID": 1,
+            "TITLE": f"{full_name} {phone_number}",
+            "CONTACT_ID": contact_id,
+            "SOURCE_ID": 1
+        }
+    }
+    async with BitrixClient() as bitrix:
+        return await bitrix.post("crm.deal.add", payload)
+
+
+async def change_deal_stage(deal_id: int, next_stage: str):
+    if not deal_id or not next_stage:
+        return None
+    payload = {"id": deal_id, "fields": {"STAGE_ID": next_stage}}
+    async with BitrixClient() as bitrix:
+        return await bitrix.post("crm.deal.update", payload)

@@ -10,7 +10,7 @@ from middlewares.decorators import skip_if_registered
 import re
 from create_bot import bot
 from decouple import config
-from services.bitrix import create_contact, create_deal
+from services.bitrix import create_contact, create_deal_agents
 from utils.split_full_name import split_full_name
 
 registration_router = Router()
@@ -180,7 +180,7 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     # marketing = data.get('marketing', False)
     # Создаём контакт и сделку в Bitrix
     contact_id = await create_contact(full_name, phone, city, username)
-    deal_id = await create_deal(full_name, contact_id)
+    deal_id = await create_deal_agents(full_name, contact_id)
 
     # Сохраняем в Postgres
     await db.execute(

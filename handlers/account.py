@@ -5,6 +5,7 @@ from aiogram.types import Message, CallbackQuery
 from keyboards.inline_kb import reg_user_kb, confirm_patient_kb
 from datetime import datetime
 from db_handler.postgres import db
+from services.bitrix import create_deal_patient
 
 account_router = Router()
 
@@ -88,9 +89,11 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
 
     agent_id = callback.from_user.id
-    full_name = data.get('full_name', '')
-    phone_number = data.get('phone_number', None)
+    full_name = data.get('full_name')
+    phone_number = data.get('phone_number')
     created = datetime.now()
+    contact_id = await db.fetchval("SELECT bitrix_contact_id FROM agents WHERE telegram_id = $1", agent_id)
+    deal_id = await create_deal_patient(full_name, phone_number, contact_id)
 
     # Сохраняем в Postgres
     await db.execute(
@@ -99,16 +102,21 @@ async def confirm_registration(callback: CallbackQuery, state: FSMContext):
                 agent_id,
                 full_name,
                 phone_number,
-                created
-            ) VALUES ($1,$2,$3,$4)
+                created,
+                bitrix_deal_id
+            ) VALUES ($1,$2,$3,$4,$5)
             """,
             agent_id,
             full_name,
             phone_number,
-            created
+            created,
+            deal_id
         )
-    agent = await db.fetchrow("SELECT requested_contract FROM agents WHERE telegram_id=$1", agent_id)
-    requested_contract = agent['requested_contract'] if agent else False
+
+    requested_contract = await db.fetchval(
+        "SELECT requested_contract FROM agents WHERE telegram_id=$1",
+        agent_id
+    )
     await callback.message.edit_text(
         f"Мы приняли ваш запрос на запись {full_name}",
         reply_markup=reg_user_kb(agent_id, full_name, requested_contract)
